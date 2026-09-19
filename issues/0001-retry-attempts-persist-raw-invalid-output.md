@@ -1,8 +1,70 @@
 # 0001 — Retry attempts still persist raw invalid output
 
-Status: open
+Status: implemented in nala; broader model-quality evaluation remains open
 Filed: 2026-06-13
 Area: `bin/nala` — `run_agent_loop` retry branches
+
+## Nala fix — 2026-09-19
+
+We implemented option 1 below after a real DeepSeek V4.1 Flash conversation
+repeated DSML-style calls and echoed driver-generated result/status frames.
+Keeping those rejected attempts in the next prompt supplied more examples of
+the unwanted protocol. This fixes the upstream inconsistency; it does not change
+which tags the parser accepts or translate DSML into executable commands.
+
+Both format-retry paths now save the exact raw response in a unique
+`{conversation}.invalid.{guid}` sidecar before retrying. Its header records the
+attempt number, turn, time, and detailed rejection reason. The working
+conversation receives only a fixed correction, the sidecar filename, and a
+turn-status line linking the GUID and preserving cumulative token counts.
+Detailed parser errors stay in the sidecar too, because they can quote invalid
+attributes or raw response fragments.
+
+Mixed valid/junk responses retain the existing cleanup behavior. The limit is
+still three attempts per step, provider-error handling is unchanged, and
+rejected attempts never execute. This is append-only and leaves existing saved
+conversations untouched; historical malformed turns are not retroactively
+removed.
+
+The cost is one diagnostic file and write per rejected attempt. Sidecar garbage
+collection remains the separate open issue 0002. No parser redesign or extra
+model call is introduced.
+
+### Verification
+
+Regression tests failed before the change, then passed. The full suite ran
+343 tests: 341 passed and two opt-in live tests were skipped. New coverage checks
+DSML-only output, unclosed known tags (including a valid action before the
+malformation), invalid attributes, empty output, and three-attempt exhaustion.
+Assertions cover exact raw preservation, diagnostic links, clean subsequent
+requests, no rejected execution, exactly-once accepted execution, and unchanged
+token accounting. Existing mixed-output cleanup tests also pass.
+
+The wheel also passed the isolated uv installation check: all 10 commands,
+independent project roots, bundled helper execution, credential isolation,
+and installed prompt/context lookup.
+
+A controlled live comparison used OpenRouter's `deepseek/deepseek-v4.1-flash`,
+a fixed initial context/user request, and two rejected-output fixtures: an
+observed DSML-only response and a synthetic unclosed shell tag. Each fixture
+was tried twice with the old retry prompt (raw response plus correction) and
+twice with the new correction-only prompt. Generated commands were parsed but
+never executed. Results for the immediate next response:
+
+| Fixture | Old: valid/attempts | New: valid/attempts |
+| --- | --- | --- |
+| Observed DSML | 1/2 | 2/2 |
+| Unclosed shell | 2/2 | 2/2 |
+| Total | 3/4 | 4/4 |
+
+All accepted responses in this sample were also free of ignored content.
+An earlier comparison batch was interrupted by an upstream provider internal
+server error; it is excluded from these counts. These are small controlled
+next-response probes, not a full-session benchmark or proof of statistical
+non-regression. The deterministic guarantee is that rejected text no longer
+enters subsequent requests; broader recovery-rate evaluation remains open.
+
+## Original upstream report
 
 ## Context
 

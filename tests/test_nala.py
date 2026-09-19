@@ -785,6 +785,88 @@ class ActionTests(unittest.TestCase):
         self.assertIsNone(output)
         self.assertEqual(error, "bridge failed")
 
+    def test_format_retries_keep_raw_only_in_linked_sidecars(self):
+        bad_outputs = [
+            '<｜DSML｜ calls>BAD_DSML</｜DSML｜ calls>',
+            '<nala-shell>BAD_UNCLOSED',
+            '<nala-shell BAD_ATTRIBUTE="x">echo rejected</nala-shell>',
+            '',
+        ]
+        for bad in bad_outputs:
+            with self.subTest(bad=bad), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                conversation = root / "conversation"
+                conversation.write_text("initial")
+                # Even a valid action preceding a malformed tag must not execute.
+                rejected = '<nala-shell>echo rejected</nala-shell>' + bad if 'BAD_UNCLOSED' in bad else bad
+                replies = iter([rejected, '<nala-shell>echo accepted</nala-shell>',
+                                '<nala-response>done</nala-response>'])
+                requests = []
+                stats = self.mod.TokenStats()
+
+                def fake_call(path, llm, token_stats):
+                    requests.append(path.read_text())
+                    token_stats.turn_count += 1
+                    token_stats.recursive_input_tokens += 10
+                    token_stats.recursive_output_tokens += 5
+                    return next(replies), None
+
+                with unittest.mock.patch.object(self.mod, "call_llm", side_effect=fake_call), \
+                     unittest.mock.patch.object(self.mod, "execute_shell", return_value='<nala-shell-result>ok</nala-shell-result>') as execute:
+                    code, responses = self.mod.run_agent_loop(
+                        conversation, root, self.mod.LlmSettings("openrouter", "test"),
+                        "hello", "4242", token_stats=stats, json_mode=True,
+                    )
+                self.assertEqual((code, responses), (0, ["done"]))
+                execute.assert_called_once_with("echo accepted", stats)
+                self.assertEqual((stats.turn_count, stats.recursive_input_tokens, stats.recursive_output_tokens), (3, 30, 15))
+                sidecars = list(root.glob("conversation.invalid.*"))
+                self.assertEqual(len(sidecars), 1)
+                stored = sidecars[0].read_text()
+                self.assertEqual(stored.split("# --- raw model output below ---\n", 1)[1], rejected)
+                self.assertIn("attempt 1 of 3", stored)
+                contents = conversation.read_text()
+                self.assertIn(sidecars[0].name, contents)
+                self.assertIn("valid nala tags", requests[1])
+                for request in requests[1:] + [contents]:
+                    for marker in ("BAD_DSML", "BAD_UNCLOSED", "BAD_ATTRIBUTE", "echo rejected"):
+                        self.assertNotIn(marker, request)
+
+    def test_format_retry_exhaustion_preserves_each_attempt_outside_conversation(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            conversation = root / "conversation"
+            conversation.write_text("initial")
+            raw = ['BAD_FIRST', '<nala-write path="/tmp/rejected">BAD_SECOND', 'BAD_THIRD']
+            requests = []
+            replies = iter(raw)
+
+            def fake_call(path, *args):
+                requests.append(path.read_text())
+                return next(replies), None
+
+            with unittest.mock.patch.object(self.mod, "call_llm", side_effect=fake_call), \
+                 unittest.mock.patch.object(self.mod, "process_tags") as execute:
+                code, responses = self.mod.run_agent_loop(
+                    conversation, root, self.mod.LlmSettings("openrouter", "test"),
+                    "hello", "4242", json_mode=True,
+                )
+            self.assertEqual(code, 1)
+            self.assertIn("after 3 attempts", responses[0])
+            self.assertEqual(len(requests), 3)
+            execute.assert_not_called()
+            contents = conversation.read_text()
+            sidecars = list(root.glob("conversation.invalid.*"))
+            self.assertEqual(len(sidecars), 3)
+            self.assertCountEqual(
+                [p.read_text().split("# --- raw model output below ---\n", 1)[1] for p in sidecars], raw,
+            )
+            for p in sidecars:
+                self.assertIn(p.name, contents)
+            for request in requests + [contents]:
+                for marker in ("BAD_FIRST", "BAD_SECOND", "BAD_THIRD"):
+                    self.assertNotIn(marker, request)
+
     def test_run_agent_loop_retries_llm_errors(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

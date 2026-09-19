@@ -1093,12 +1093,12 @@ def write_invalid_sidecar(
     turn: int,
     now: datetime,
 ) -> str:
-    """Persist a turn's raw output verbatim (it contained non-protocol content)
+    """Persist a turn or rejected attempt's raw output verbatim
     beside the conversation as {name}.invalid.{guid}, and return the guid.
 
-    The conversation keeps only the cleaned turn so the stripped content cannot
-    bias later generations; this sidecar is the full record, linked from that
-    turn's <nala-turn-status invalid="{guid}" />.
+    The conversation keeps cleaned accepted output or a correction for a
+    rejected attempt. This sidecar preserves the raw record, linked from
+    <nala-turn-status invalid="{guid}" /> in either case.
     """
     guid = str(uuid.uuid4())
     header = (
@@ -2030,24 +2030,37 @@ def run_agent_loop(
                 continue
 
             tags, ignored, parse_error = parse_response(llm_output)
-            if parse_error is not None:
-                # A known tag was malformed: ask the model to fix it and retry.
-                append_to_conversation(
-                    conversation_file,
-                    f"<agent-response>\n{llm_output}\n</agent-response>\n"
-                    f"<system>Invalid nala response format: {parse_error}. "
-                    f"Respond only with valid nala tags.</system>",
-                )
-                continue
-            if tags:
+            if parse_error is None and tags:
                 break
 
-            # No actionable tag. If we tolerated junk, say what we ignored;
-            # otherwise the turn was empty. Either way, retry.
-            note = ignored_correction(ignored) if ignored else "Response contains no nala tags."
+            # Rejected attempts are diagnostics, not examples for later turns.
+            # Parser errors may quote raw output, so keep their details only
+            # in the sidecar and send a fixed correction back to the model.
+            if parse_error is not None:
+                note = (
+                    "Malformed nala tag. Check required attributes, self-closing "
+                    "forms, and closing tags against initial_context. "
+                    "Respond only with valid nala tags."
+                )
+                reasons = [parse_error]
+            else:
+                note = (
+                    "Response contains no valid nala tags. "
+                    "Respond only with the structured tags listed in initial_context."
+                )
+                reasons = ignored or ["Response contains no nala tags."]
+            now = datetime.now(timezone.utc)
+            invalid_ref = write_invalid_sidecar(
+                conversation_file, llm_output,
+                [f"format retry attempt {attempt + 1} of {MAX_FORMAT_RETRIES}", *reasons],
+                token_stats.turn_count, now,
+            )
+            diagnostic = invalid_sidecar_path(conversation_file, invalid_ref).name
             append_to_conversation(
                 conversation_file,
-                f"<agent-response>\n{llm_output}\n</agent-response>\n<system>{note}</system>",
+                f"<system>{note} Attempt {attempt + 1} of {MAX_FORMAT_RETRIES}. "
+                f"Rejected output saved for debugging in {diagnostic}.</system>\n"
+                f"{turn_status_block(token_stats, now, invalid_ref=invalid_ref)}",
             )
         else:
             if error is not None:
