@@ -22,21 +22,19 @@ the canonical teaching document; read it before making non-trivial changes.
 ## Commands
 
 ```bash
-# Setup
-python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-export PATH="$PWD/bin:$PATH"          # tools must be on PATH; nala shells out to its siblings by name
-mkdir -p ~/.nala && cp config.example.json ~/.nala/config.json
-
-# Tests (no framework beyond stdlib unittest)
-python3 -m unittest discover -s tests -v
-python3 -m unittest tests.test_nala_file_split -v          # one module
-python3 -m unittest tests.test_nala.SomeTest.test_case -v  # one test
+# Development environment and tests
+uv sync --locked
+uv run nala --status
+uv run python -m unittest discover -s tests -v
+uv build
+uv run python tests/verify_install.py dist/nala-0.2.0-py3-none-any.whl
 ```
 
-There is no build step, linter, or package manifest — the `bin/` scripts are run
-directly. Provider SDKs (`requirements.txt`) are only needed for live LLM calls;
-most tests mock the provider.
+Packaging is declared in `pyproject.toml`; `src/nala/launcher.py` runs the
+existing script layout, bundled under `nala/runtime/` in wheels. Preserve the
+relative layout: prompt discovery and sibling subprocesses rely on it. Test an
+installed wheel outside the checkout after packaging or path changes.
+Provider extras and development dependencies are declared in `pyproject.toml`.
 
 ## Architecture
 

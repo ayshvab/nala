@@ -932,16 +932,62 @@ checkpoint triggers and rebuild, providers, tool descriptions, JSON output.
 
 # Setup
 
+Install [uv](https://docs.astral.sh/uv/getting-started/installation/) and Git,
+then install nala once for your user (Python 3.11+; uv can provision Python):
+
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install openai pyyaml  # dependencies for OpenRouter; requirements.txt includes other providers
-export PATH="$PWD/bin:$PATH"
-mkdir -p ~/.nala
-cp config.example.json ~/.nala/config.json
-read -rsp "OpenRouter API key: " OPENROUTER_API_KEY; echo
-export OPENROUTER_API_KEY
+uv tool install git+https://github.com/ayshvab/nala.git
+uv tool update-shell
 ```
+
+Open a new terminal if uv added its tool directory to PATH. Then run `nala`
+from any project directory; no virtual-environment activation is needed.
+This is a terminal tool using POSIX shell commands; installation is verified on Linux.
+
+Save your OpenRouter key once, outside any repository:
+
+```bash
+mkdir -p ~/.config/nala
+(umask 077; read -rsp 'OpenRouter key: ' key; echo
+printf '%s' "$key" > ~/.config/nala/openrouter.key)
+```
+
+`OPENROUTER_API_KEY`, when set, overrides that file. The key remains local;
+configure it separately on each computer. OpenRouter and DeepSeek V4.1 Flash
+are already the defaults, so a config file is optional.
+
+```bash
+cd ~/Work/your-project
+nala "Explain this project"
+```
+
+Upgrade or uninstall:
+
+```bash
+uv tool upgrade nala
+uv tool uninstall nala
+```
+
+For a temporary run without installing the command:
+
+```bash
+uvx --from git+https://github.com/ayshvab/nala.git nala --status
+```
+
+OpenRouter, OpenAI, and Together use the default dependencies. Other providers
+are optional extras: `anthropic`, `google`, `cursor`, and `claude-code`.
+For example:
+
+```bash
+uv tool install 'nala[anthropic] @ git+https://github.com/ayshvab/nala.git'
+```
+
+For development in this checkout, use `uv sync --locked`, then `uv run nala`.
+`uv.lock` pins the development environment. Tool installations resolve package
+dependencies from `pyproject.toml`; they do not consume the development lockfile.
+The wheel bundles the existing scripts, helpers, prompts, and context under
+`nala/runtime/`, preserving their relative layout. A small entry-point launcher
+selects this installation's Python and helper commands for child processes.
 
 The root: inside a git repo, `{toplevel}/.nala` (created on first use, with
 a `.gitignore` covering `splits/`); outside, `~/.nala`; `--root` overrides.
@@ -1055,14 +1101,18 @@ context.
 # Tests
 
 ```bash
-python3 -m unittest discover -s tests -v
+uv sync --locked
+uv run python -m unittest discover -s tests -v
+uv build
+uv run python tests/verify_install.py dist/nala-0.2.0-py3-none-any.whl
 ```
 
-The test suite needs `openai`, `pyyaml`, and `google-genai` installed.
-Live OpenRouter tests are opt-in and need `OPENROUTER_API_KEY`:
+The installation check uses an isolated home and tool environment, exercises all
+commands and a split helper, and checks resources and separate project roots.
+Live OpenRouter tests are opt-in and use your environment key or saved key file:
 
 ```bash
-NALA_LIVE_TESTS=1 python3 -m unittest discover -s tests -p test_nala.py -k LiveIntegrationTests -v
+NALA_LIVE_TESTS=1 uv run python -m unittest discover -s tests -p test_nala.py -k LiveIntegrationTests -v
 ```
 
 # License

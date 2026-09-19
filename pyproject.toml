@@ -1,0 +1,45 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "nala"
+version = "0.2.0"
+description = "File-based LLM workflows with OpenRouter and DeepSeek defaults"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+dependencies = ["openai>=1.0.0", "pyyaml>=5.4"]
+
+[project.optional-dependencies]
+anthropic = ["anthropic>=0.40.0"]
+google = ["google-genai>=1.0.0"]
+cursor = ["cursor-sdk>=0.1.0"]
+claude-code = ["claude-agent-sdk>=0.1.0"]
+
+[dependency-groups]
+dev = ["google-genai>=1.0.0"]
+
+[project.scripts]
+nala = "nala.launcher:main"
+nala-campaign = "nala.launcher:main"
+nala-distill = "nala.launcher:main"
+nala-file-edit = "nala.launcher:main"
+nala-file-patch = "nala.launcher:main"
+nala-file-split = "nala.launcher:main"
+nala-file-summarize = "nala.launcher:main"
+nala-llm-text = "nala.launcher:main"
+nala-llm-upload = "nala.launcher:main"
+nala-wait-for-result = "nala.launcher:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/nala"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"bin" = "nala/runtime/bin"
+"prompts" = "nala/runtime/prompts"
+"context" = "nala/runtime/context"
+"context.yaml" = "nala/runtime/context.yaml"
+
+[tool.hatch.build.targets.sdist]
+include = ["src", "bin", "prompts", "context", "context.yaml", "tests", "pyproject.toml", "uv.lock", "README.md", "LICENSE", "config.example.json"]

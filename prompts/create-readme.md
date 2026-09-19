@@ -589,7 +589,8 @@ nala_file_split_lib.py, nala_file_patch_lib.py,
 nala_file_summarize_lib.py, nala_distill_lib.py). Tests are executable notes.
 
 **Setup / Common Commands / Tests.** Ground in the current implementation:
-pip install, PATH, the project-local root default
+uv tool install from GitHub, saved OpenRouter key, optional provider extras,
+uv sync/run/build for development, the project-local root default
 (`{git-toplevel}/.nala`, `--root` override, `~/.nala` outside repos,
 scaffolded `.gitignore`), config resolution (CLI → `NALA_CONFIG` →
 project `.nala/config.json` → `~/.nala/config.json`), the provider

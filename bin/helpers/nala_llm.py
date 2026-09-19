@@ -262,6 +262,14 @@ def resolve_provider(
 
 
 def credential_env_var(provider: str) -> str | None:
+    if provider == "openrouter" and not os.environ.get("OPENROUTER_API_KEY"):
+        key_path = Path("~/.config/nala/openrouter.key").expanduser()
+        try:
+            key = key_path.read_text(encoding="utf-8").strip()
+        except FileNotFoundError:
+            key = ""
+        if key:
+            os.environ["OPENROUTER_API_KEY"] = key
     for env_var in CREDENTIAL_ENV[provider]:
         if os.environ.get(env_var):
             return env_var
