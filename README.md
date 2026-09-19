@@ -237,6 +237,7 @@ Nothing else to register.
 | ----------------------- | --------------------------------------------------- |
 | `nala`                | Main structured conversation loop.                  |
 | `nala-llm-text`       | Send a text file to the configured LLM.             |
+| `nala-ask-jev`        | Ask Jev typed questions; keep input/output inline.  |
 | `nala-llm-upload`     | Upload a supported file with a prompt.              |
 | `nala-file-edit`      | Per-file conversation for one source file.          |
 | `nala-file-split`     | Split large file into segments + `index.json`.      |
@@ -251,6 +252,45 @@ Nothing else to register.
 nala --description
 nala-campaign --description
 ```
+
+`nala-ask-jev` asks the decision model `typesafe/jev-1.13` through OpenRouter,
+using the same `OPENROUTER_API_KEY` or saved key as nala. The main model gathers
+evidence and writes questions; Jev returns choices, rubric scores, or probabilities.
+Nala discovers its description automatically. Before the first consultation,
+the agent reads the bundled guidance with `nala-ask-jev --guide`.
+
+Ask nala naturally, for example: “Use nala-ask-jev to check whether these test
+results support your conclusion.” The native action is a JSON object inside
+`<nala-ask-jev>`. Its actual API response follows as `<nala-ask-jev-result>` in
+the same stored conversation, before the main model continues:
+
+```xml
+<nala-ask-jev>
+{"state":{"claim":"All tests passed","log":"2 failed"},"questions":{"supported":{"type":"noul","instructions":"Does `log` support `claim`?"}}}
+</nala-ask-jev>
+```
+
+The result contains the returned model, answers, usage/cost when supplied,
+elapsed time, and an explicit `ok` or `error` status. The full input and output
+remain inline: there are no separate Jev record files or links to inspect.
+Normal conversation compaction works as it does for other tool interactions.
+Consultations inform the main agent; they do not automatically authorize actions
+or replace tests. Jev does not generate code or explanations.
+
+For direct terminal use, pass a JSON request on stdin (or use `--file request.json`):
+
+```bash
+nala-ask-jev --file - --json <<'JSON'
+{"state":{"claim":"All tests passed","log":"2 failed"},"questions":{"supported":{"type":"noul","instructions":"Does `log` support `claim`?"}}}
+JSON
+```
+
+The CLI JSON includes both request and response. Errors exit nonzero. There is
+one API request per call, a 45-second timeout, and no automatic retry. The local
+request size limit is 128 KiB; the provider also enforces its model context limit.
+See `nala-ask-jev --guide` for all three question shapes, evidence selection,
+batching, and interpreting uncertainty, adapted from
+[TypeSafe's agent guidance](https://docs.typesafe.ai/agent-skill).
 
 **Build your own:** tools emit capability text. Assemble prompts from that.
 Do not maintain a hidden registry that drifts.

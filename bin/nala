@@ -54,6 +54,7 @@ from nala_file_patch_lib import apply_segment_patches
 from nala_file_split_lib import slugify
 from nala_distill_lib import digest_path, file_knowledge_path, knowledge_item_counts, root_size_bytes
 from nala_campaign_lib import campaign_status_lines
+from nala_jev import ask_jev, dumps as jev_json
 from nala_tags import (
     TagParseError,
     extract_block,
@@ -75,7 +76,7 @@ sub-conversations. Prefer nala for human-driven requests and scoped
 sub-conversation tasks."""
 
 Invocation = Literal["user", "delegated"]
-TagType = Literal["response", "read", "file_read", "file_patch", "write", "shell", "next", "conversation"]
+TagType = Literal["response", "read", "file_read", "file_patch", "write", "shell", "next", "conversation", "ask_jev"]
 
 # Protocol tag names -> NalaTag.kind. Shapes are validated in parse_response;
 # tokenization lives in nala_tags (the protocol is XML-ish, not XML: bodies
@@ -87,6 +88,7 @@ TAG_KINDS: dict[str, TagType] = {
     "nala-file-patch": "file_patch",
     "nala-write": "write",
     "nala-shell": "shell",
+    "nala-ask-jev": "ask_jev",
     "nala-next": "next",
     "nala-conversation": "conversation",
 }
@@ -782,6 +784,7 @@ Respond only with one or more of these structured tags (no other text):
 - <nala-file-patch index="{{index-json-path}}" /> — merge edited split segments back into the source file.
 - <nala-write path="{{file-path-to-write}}">{{file content}}</nala-write> — write a file inside your write boundary (see File editing).
 - <nala-shell>{{shell commands}}</nala-shell> — run shell commands; output is appended to this conversation.
+- <nala-ask-jev>{{JSON object with state and questions}}</nala-ask-jev> — ask Jev for typed judgments; read nala-ask-jev --guide before first use. The actual result is appended to this conversation.
 - <nala-next>{{prompt}}</nala-next> — append a prompt to yourself and continue reasoning.
 - <nala-conversation>{{prompt}}</nala-conversation> — delegate a sub-task to an isolated sub-conversation.
 - <nala-conversation conversation-file="{{name-or-path}}">{{prompt}}</nala-conversation> — continue a named worker conversation, or start one from a file you wrote.
@@ -953,7 +956,7 @@ def parse_response(text: str) -> tuple[list[NalaTag], list[str], str | None]:
     for node in nodes:
         kind = TAG_KINDS[node.name]  # the scanner only returns known tag names
 
-        if kind in ("response", "shell", "next"):
+        if kind in ("response", "shell", "next", "ask_jev"):
             if node.self_closing:
                 return [], [], f"<{node.name}> requires a body, not a self-closing tag"
             if node.attrs:
@@ -1448,6 +1451,18 @@ def execute_shell(commands: str, token_stats: TokenStats | None = None) -> str:
     return "\n".join(parts)
 
 
+def execute_ask_jev(content: str, token_stats: TokenStats) -> str:
+    with wait_spinner("Asking Jev"):
+        record = ask_jev(content)
+    if record["status"] == "ok":
+        usage = record["response"].get("usage", {})
+        token_stats.add_recursive(usage.get("input_tokens", 0), usage.get("output_tokens", 0))
+    # The native action already contains the exact input. Keep the actual API
+    # response inline without duplicating the request or writing separate files.
+    result = {k: v for k, v in record.items() if k not in ("request", "request_text")}
+    return f"<nala-ask-jev-result>\n{jev_json(result)}\n</nala-ask-jev-result>"
+
+
 def run_hook(command: str, label: str, path: str | None = None) -> str:
     """Run a configured hook command and return a conversation block with its
     output. Hooks feed ground-truth status into the loop (a per-turn status
@@ -1642,6 +1657,9 @@ def process_tags(
             should_continue = True
         elif tag.kind == "shell":
             append_to_conversation(conversation_file, execute_shell(tag.content, token_stats))
+            should_continue = True
+        elif tag.kind == "ask_jev":
+            append_to_conversation(conversation_file, execute_ask_jev(tag.content, token_stats))
             should_continue = True
         elif tag.kind == "conversation":
             append_to_conversation(

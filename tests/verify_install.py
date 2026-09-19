@@ -19,8 +19,8 @@ def main():
         names = archive.namelist()
         assert not any('__pycache__' in name or name.endswith('.pyc') for name in names)
         tools = sorted(Path(n).name for n in names if n.startswith('nala/runtime/bin/') and n.count('/') == 3)
-        assert len(tools) == 10, tools
-        for required in ('context.yaml', 'context/data-oriented-design.md', 'prompts/compact-conversation.md'):
+        assert len(tools) == 11, tools
+        for required in ('context.yaml', 'context/data-oriented-design.md', 'prompts/compact-conversation.md', 'prompts/ask-jev.md'):
             assert 'nala/runtime/' + required in names, required
     with tempfile.TemporaryDirectory(prefix='nala-install-check-') as tmp:
         root = Path(tmp)
@@ -43,6 +43,9 @@ def main():
         for tool in tools:
             run([root/'commands'/tool, '--help'])
         print(f'PASS: clean uv tool installation; all {len(tools)} command entry points run')
+        guide = run([root/'commands/nala-ask-jev', '--guide'])
+        assert 'Question IDs' in guide.stdout and 'independent' in guide.stdout
+        print('PASS: installed Jev guide is available outside checkout')
         for project in ('project-a', 'project-b'):
             cwd = root/project
             cwd.mkdir()

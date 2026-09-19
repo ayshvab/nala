@@ -22,6 +22,7 @@ dev = ["google-genai>=1.0.0"]
 
 [project.scripts]
 nala = "nala.launcher:main"
+nala-ask-jev = "nala.launcher:main"
 nala-campaign = "nala.launcher:main"
 nala-distill = "nala.launcher:main"
 nala-file-edit = "nala.launcher:main"
