@@ -2,21 +2,21 @@
 
 Status: open
 Filed: 2026-06-13
-Area: `bin/nagent` — `write_invalid_sidecar`, rebuild/archive paths
+Area: `bin/nala` — `write_invalid_sidecar`, rebuild/archive paths
 
 ## Context
 
 Commit 065168c writes a `{conversation}.invalid.{guid}` file next to the
-conversation whenever a turn contained non-protocol content that nagent
+conversation whenever a turn contained non-protocol content that nala
 stripped. The file holds the raw model output (header + verbatim body) and is
-linked from that turn's `<nagent-turn-status invalid="{guid}" />`.
+linked from that turn's `<nala-turn-status invalid="{guid}" />`.
 
 Nothing ever deletes these files, and no other code path knows they exist.
 
 ## The problem (data)
 
 - **Accumulation.** One sidecar per invalid turn, in
-  `~/.nagent/conversations/` (or the project `.nagent/conversations/`). A
+  `~/.nala/conversations/` (or the project `.nala/conversations/`). A
   leak-prone provider on a long run produces many. Each is small (one turn's
   output, capped by whatever the provider emitted), so this is a file-count and
   tidiness problem, not a disk-space emergency.

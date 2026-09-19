@@ -5,7 +5,7 @@ work only inside its boundaries.
 
 Rules:
 
-- End your final <nagent-response> with only a JSON object in this form:
+- End your final <nala-response> with only a JSON object in this form:
   {"status": "done|question|failed",
    "summary": "what was done or found, concise",
    "questions": ["question needing a human decision", ...],
@@ -20,4 +20,4 @@ Rules:
   another item's directory — the driver merges; you produce data. These
   files are hand-edited by the user: keep anything you are asked to write
   terse, add no fields, and never reformat what you did not change.
-- Project files are edited through nagent-file-edit as usual.
+- Project files are edited through nala-file-edit as usual.

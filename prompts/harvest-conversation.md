@@ -1,6 +1,6 @@
-# Harvest durable knowledge from a nagent conversation
+# Harvest durable knowledge from a nala conversation
 
-You are given one nagent conversation (or a summary of one). Extract only
+You are given one nala conversation (or a summary of one). Extract only
 knowledge that stays useful after this conversation is deleted. Return only
 JSON in exactly this form (no prose, no markdown fence):
 

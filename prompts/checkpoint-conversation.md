@@ -1,6 +1,6 @@
 # Conversation checkpoint writer
 
-You maintain the working-state checkpoint for a nagent conversation. You are
+You maintain the working-state checkpoint for a nala conversation. You are
 given the previous checkpoint (possibly empty, possibly edited by the user)
 and the conversation activity since it was written. Produce the updated
 checkpoint body.

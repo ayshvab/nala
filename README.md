@@ -1,9 +1,10 @@
-# nagent
+# nala
 
-**nagent** means **not-an-agent**.
+**nala** is a fork of [macton/nagent](https://github.com/macton/nagent),
+which means **not-an-agent**. It defaults to OpenRouter with DeepSeek V4.1 Flash.
 
 The word "agent" suggests continuity, intent, and memory that a typical LLM
-loop does not actually provide. nagent is a small reference implementation.
+loop does not actually provide. nala is a small reference implementation.
 It shows what terminal "agent-like" workflows are when you describe the
 mechanics instead of the metaphor.
 
@@ -11,7 +12,7 @@ The claim is simple:
 
 **The agent is not the thing. The data is the thing.**
 
-nagent is a small reference example of a data-oriented approach to AI
+nala is a small reference example of a data-oriented approach to AI
 workflows.
 
 The second claim follows from the first:
@@ -20,7 +21,7 @@ The second claim follows from the first:
 
 If a generator produces output you do not like, fix the generator or the
 inputs to that generator. Do not patch the generated output and leave the bad
-input in place. In nagent, the conversation is one of those inputs. If it
+input in place. In nala, the conversation is one of those inputs. If it
 matters, it needs to be saveable, maintainable, organizable, and editable.
 
 The LLM is temporary. The process is temporary. Sub-conversations are
@@ -42,24 +43,24 @@ and you still leave with something true. Finish and you can build your own.
 
 ## What It Looks Like
 
-One `nagent` prompt can run for many turns. Reads. Shell. Sub-conversations.
+One `nala` prompt can run for many turns. Reads. Shell. Sub-conversations.
 More reasoning. Everything gets appended to the conversation file. From the
 terminal you typed one command. Under the hood the loop keeps going until the
 model emits a final response.
 
 ```bash
-nagent "Investigate why this Linux service fails to start. Read the unit file and related config, run diagnostic commands, explain the root cause, and propose a fix before changing anything."
+nala "Investigate why this Linux service fails to start. Read the unit file and related config, run diagnostic commands, explain the root cause, and propose a fix before changing anything."
 ```
 
 ```bash
-nagent "Review this repository: identify the main entry points, run the test suite, fix the smallest failing test you find, and summarize what changed and why."
+nala "Review this repository: identify the main entry points, run the test suite, fix the smallest failing test you find, and summarize what changed and why."
 ```
 
 ```bash
-nagent "Plan the migration of this config format. Inspect the loader, tests, and examples, explain the risks, then make the smallest implementation change if the plan is sound."
+nala "Plan the migration of this config format. Inspect the loader, tests, and examples, explain the risks, then make the smallest implementation change if the plan is sound."
 ```
 
-These are coordination tasks, not one-shot answers. nagent may read many
+These are coordination tasks, not one-shot answers. nala may read many
 files, run commands, spawn sub-conversations for scoped work, and iterate. It
 does not bypass permissions; it runs with the same access your user and
 filesystem allow.
@@ -79,16 +80,16 @@ whiteboard.
 LLMs forget. Therefore put the prompt in a file and treat the model as a
 temporary function over that data.
 
-**Implementation** — `bin/nagent-llm-text` reads a text file, resolves
+**Implementation** — `bin/nala-llm-text` reads a text file, resolves
 provider and model settings, calls `generate_text_with_usage()` from
-`bin/helpers/nagent_llm.py`, and prints plain text or JSON with token usage.
-Providers: `openai`, `anthropic`, `google`, `cursor`, `together`, and
+`bin/helpers/nala_llm.py`, and prints plain text or JSON with token usage.
+Providers: `openrouter`, `openai`, `anthropic`, `google`, `cursor`, `together`, and
 `claude-code` — the last runs the prompt through your locally installed Claude
 Code via the Claude Agent SDK and authenticates with Claude Code's own login,
 no API key in the environment. `together` is OpenAI-wire-compatible and reuses
 the `openai` SDK pointed at `https://api.together.ai/v1`.
 
-`bin/nagent-llm-upload` is the sibling for artifacts that need upload APIs:
+`bin/nala-llm-upload` is the sibling for artifacts that need upload APIs:
 images, PDFs, office files, code documents. It rejects `.zip`, enforces a
 50 MB limit, returns text or JSON.
 
@@ -96,10 +97,10 @@ images, PDFs, office files, code documents. It rejects `.zip`, enforces a
 
 ```bash
 echo "What is 2+2?" > question.txt
-nagent-llm-text --file question.txt
+nala-llm-text --file question.txt
 ```
 
-Everything else in nagent is orchestration around this. Do not skip it.
+Everything else in nala is orchestration around this. Do not skip it.
 
 **Build your own:** implement `generate_text(file) -> str` first. Boring.
 Separate. Provider churn should not rewrite your loop.
@@ -111,7 +112,7 @@ Separate. Provider churn should not rewrite your loop.
 The startup prompt lists the only tags the model may emit. The parser is
 strict: recognized tags and whitespace. Nothing else.
 
-**Implementation** — `build_initial_context()` in `bin/nagent` assembles the
+**Implementation** — `build_initial_context()` in `bin/nala` assembles the
 runtime context: role instructions and the structured tag protocol first,
 then context-management and write rules, discovered tool descriptions, the
 context layers, the knowledge digest — and instance facts and environment
@@ -124,37 +125,37 @@ The context also states the protocol rules outright, because they are the
 failure modes that matter: tag bodies are raw text (no escaping; the first
 matching close tag ends a body — the protocol is XML-ish, not XML); nothing
 outside tags; and the loop contract — action results come back appended as
-`<nagent-*-result>` blocks before the model is called again, so never
+`<nala-*-result>` blocks before the model is called again, so never
 fabricate results, and an error result is data that should change the
 approach, not provoke an identical retry. A strict XML parser would reject
 valid output, so tokenization lives in a small explicit parser,
-`bin/helpers/nagent_tags.py`, and `parse_response()` validates tag shapes on
+`bin/helpers/nala_tags.py`, and `parse_response()` validates tag shapes on
 top of it.
 
 Tags:
 
 | Tag                                              | Meaning                                |
 | ------------------------------------------------ | -------------------------------------- |
-| `<nagent-response>...</nagent-response>`         | Human response or child result.        |
-| `<nagent-read path="..."/>`                      | Read a small file inline.              |
-| `<nagent-file-read path="..."/>`                 | Read a file; split first if needed.    |
-| `<nagent-file-patch index="..."/>`               | Merge edited split segments via index. |
-| `<nagent-write path="...">...</nagent-write>`    | Write to an allowed path.              |
-| `<nagent-shell>...</nagent-shell>`               | Run shell; append output.              |
-| `<nagent-next>...</nagent-next>`                 | Append a continuation prompt.          |
-| `<nagent-conversation>...</nagent-conversation>` | Start an isolated sub-conversation.    |
+| `<nala-response>...</nala-response>`         | Human response or child result.        |
+| `<nala-read path="..."/>`                      | Read a small file inline.              |
+| `<nala-file-read path="..."/>`                 | Read a file; split first if needed.    |
+| `<nala-file-patch index="..."/>`               | Merge edited split segments via index. |
+| `<nala-write path="...">...</nala-write>`    | Write to an allowed path.              |
+| `<nala-shell>...</nala-shell>`               | Run shell; append output.              |
+| `<nala-next>...</nala-next>`                 | Append a continuation prompt.          |
+| `<nala-conversation>...</nala-conversation>` | Start an isolated sub-conversation.    |
 
-Handlers append `<nagent-read-result>`, `<nagent-file-read-result>`,
-`<nagent-file-patch-result>`, `<nagent-write-result>`,
-`<nagent-shell-result>`, `<nagent-conversation-result>`. These are not secret
+Handlers append `<nala-read-result>`, `<nala-file-read-result>`,
+`<nala-file-patch-result>`, `<nala-write-result>`,
+`<nala-shell-result>`, `<nala-conversation-result>`. These are not secret
 return values. They are conversation data.
 
 **Example**
 
 ```xml
-<nagent-read path="README.md" />
-<nagent-shell>python3 -m unittest discover -s tests -v</nagent-shell>
-<nagent-response>Done.</nagent-response>
+<nala-read path="README.md" />
+<nala-shell>python3 -m unittest discover -s tests -v</nala-shell>
+<nala-response>Done.</nala-response>
 ```
 
 **Build your own:** put the contract in the prompt. Enforce it in a small
@@ -177,22 +178,22 @@ main()
 ```
 
 `run_agent_loop()` appends the user prompt, sends the whole conversation file
-to `nagent-llm-text --json`, appends valid output, processes tags, appends
-results, loops when an action or `<nagent-next>` added state.
+to `nala-llm-text --json`, appends valid output, processes tags, appends
+results, loops when an action or `<nala-next>` added state.
 
 Failures become data, not invisible control flow. Malformed output goes into
 the conversation with a `<system>` correction, up to `MAX_FORMAT_RETRIES`
 (3). Provider errors append too. A read of an unreadable or binary file comes
 back as an `error=` result tag instead of a crash.
 
-Writes have explicit boundaries. In the main conversation, `<nagent-write>`
+Writes have explicit boundaries. In the main conversation, `<nala-write>`
 is allowed only under temp directories (`/tmp`, `/var/tmp`, `$TMPDIR`);
 project files are edited through per-file conversations (Part VI). Say it
 plainly: this is a convention-based reference implementation, not a sandbox.
-`<nagent-shell>` runs with your user's permissions.
+`<nala-shell>` runs with your user's permissions.
 
 The loop passes the conversation's stable prefix boundaries to
-`nagent-llm-text` (`--cache-prefix-chars`), and providers that cache on block
+`nala-llm-text` (`--cache-prefix-chars`), and providers that cache on block
 boundaries reuse the shared context each turn. `TokenStats` tracks turns,
 conversation input size, and recursive input/output tokens; child `--json`
 output rolls up into the parent's totals, and cached prompt tokens fold back
@@ -210,7 +211,7 @@ loop:
         run those actions
         append results to conversation file
         continue loop
-    if response contains <nagent-response>:
+    if response contains <nala-response>:
         print it and stop
 ```
 
@@ -223,32 +224,32 @@ model again. Do not stash retry logic in RAM and pretend that is fine.
 
 No central registry. Tools describe themselves.
 
-**Implementation** — `exit_on_description()` in `bin/helpers/nagent_cli.py`
+**Implementation** — `exit_on_description()` in `bin/helpers/nala_cli.py`
 prints path + description when `--description` is in `sys.argv`.
 `collect_bin_tool_descriptions()` runs each executable with `--description`
 and inserts the results into initial context. Discovery is layered: the
-install `bin/`, then `~/.nagent/bin/`, then the project's `.nagent/bin/`,
+install `bin/`, then `~/.nala/bin/`, then the project's `.nala/bin/`,
 deduplicated by basename with the most specific layer winning. Drop an
-executable in `.nagent/bin/` and every conversation in that project knows it.
+executable in `.nala/bin/` and every conversation in that project knows it.
 Nothing else to register.
 
 | Tool                    | Role                                                |
 | ----------------------- | --------------------------------------------------- |
-| `nagent`                | Main structured conversation loop.                  |
-| `nagent-llm-text`       | Send a text file to the configured LLM.             |
-| `nagent-llm-upload`     | Upload a supported file with a prompt.              |
-| `nagent-file-edit`      | Per-file conversation for one source file.          |
-| `nagent-file-split`     | Split large file into segments + `index.json`.      |
-| `nagent-file-patch`     | Merge segments, write patch, validate hashes.       |
-| `nagent-file-summarize` | Summarize inline or via split summaries.            |
-| `nagent-distill`        | Harvest, merge, and graduate knowledge; reclaim.    |
-| `nagent-campaign`       | Operate campaigns: plans as data, driven in passes. |
+| `nala`                | Main structured conversation loop.                  |
+| `nala-llm-text`       | Send a text file to the configured LLM.             |
+| `nala-llm-upload`     | Upload a supported file with a prompt.              |
+| `nala-file-edit`      | Per-file conversation for one source file.          |
+| `nala-file-split`     | Split large file into segments + `index.json`.      |
+| `nala-file-patch`     | Merge segments, write patch, validate hashes.       |
+| `nala-file-summarize` | Summarize inline or via split summaries.            |
+| `nala-distill`        | Harvest, merge, and graduate knowledge; reclaim.    |
+| `nala-campaign`       | Operate campaigns: plans as data, driven in passes. |
 
 **Example**
 
 ```bash
-nagent --description
-nagent-campaign --description
+nala --description
+nala-campaign --description
 ```
 
 **Build your own:** tools emit capability text. Assemble prompts from that.
@@ -282,7 +283,7 @@ durable artifacts
 next temporary worker
 ```
 
-**Implementation** — `bin/nagent` stores conversations under the root's
+**Implementation** — `bin/nala` stores conversations under the root's
 `conversations/`. It appends user prompts, model responses, tool results,
 parser corrections, interrupts, and sub-conversation results to the
 conversation file. Kill the process mid-task and the file holds everything;
@@ -291,7 +292,7 @@ the system.
 
 | Hidden state                      | Explicit artifact                                 |
 | --------------------------------- | ------------------------------------------------- |
-| Prompt state in a running process | Conversation files under the nagent root          |
+| Prompt state in a running process | Conversation files under the nala root          |
 | Private tool traces               | Request tags and result wrappers appended as text |
 | In-memory scratch state           | Temp files, split segments, indexes, and patches  |
 | Framework-managed memory          | User-editable files                               |
@@ -331,7 +332,7 @@ Memory goes stale; therefore editing history is maintenance, not corruption.
   name you chose is the rest of the metadata.
 - `--summarize-conversation NAME` upgrades one index entry with a proper
   LLM summary, on demand — pay for the good version only when you want it.
-  `nagent-distill --apply` backfills the rest as maintenance.
+  `nala-distill --apply` backfills the rest as maintenance.
 - `--load-conversation` / `--branch-conversation` archive the current file
   and copy a saved or named conversation into place.
 - `--summarize` prints an LLM summary of the loaded conversation.
@@ -346,38 +347,38 @@ them, script them.
 
 Ownership has scopes, and the root follows them. Project memory was trapped
 in a personal dotdir; therefore, inside a git repository the default root is
-`{toplevel}/.nagent` — conversations, knowledge, campaigns, and per-file
+`{toplevel}/.nala` — conversations, knowledge, campaigns, and per-file
 memory live with the repo and can be committed and shared (review first:
 conversations contain tool output). `--root` overrides; outside a repo the
-root is `~/.nagent`. A newly created root ships a `.gitignore` covering only
+root is `~/.nala`. A newly created root ships a `.gitignore` covering only
 regenerable artifacts (`splits/`); committing the rest is deliberate.
 
 The prompt-side inputs are yours too, in four layers, least personal first —
 each a `context.yaml` (a list or `{ "paths": [...] }`, nested files expanding
 recursively) or a `context.md`:
 
-1. **Install** — the nagent folder itself; this repository ships
+1. **Install** — the nala folder itself; this repository ships
    `context.yaml` pointing at `context/data-oriented-design.md`.
-2. **User** — `~/.nagent/context.*`, read in every run, everywhere.
+2. **User** — `~/.nala/context.*`, read in every run, everywhere.
 3. **Project** — the git toplevel's `context.yaml`/`context.md`,
    instructions that travel with the repo.
-4. **Root** — the resolved root's own context (the project's `.nagent/`).
+4. **Root** — the resolved root's own context (the project's `.nala/`).
 
 More specific layers come later and can override; a layer whose directory
 equals an earlier layer's is included once, not twice. The prompts under
 `prompts/` (compaction, harvest, checkpoint, campaign) resolve through the
-same layering — project `.nagent/prompts/`, then `~/.nagent/prompts/`, then
-the install copy. Config resolves CLI flags → `NAGENT_CONFIG` → project
-`.nagent/config.json` → `~/.nagent/config.json`.
+same layering — project `.nala/prompts/`, then `~/.nala/prompts/`, then
+the install copy. Config resolves CLI flags → `NALA_CONFIG` → project
+`.nala/config.json` → `~/.nala/config.json`.
 
 **Example**
 
 ```bash
-nagent --status
-nagent --save-conversation before-refactor
-nagent --branch-conversation before-refactor
-nagent --compact
-nagent --edit-conversation "keep the decisions and remove obsolete logs"
+nala --status
+nala --save-conversation before-refactor
+nala --branch-conversation before-refactor
+nala --compact
+nala --edit-conversation "keep the decisions and remove obsolete logs"
 ```
 
 **Build your own:** memory is a data structure on disk. Give the user the
@@ -429,7 +430,7 @@ history.
 **Idea** — Dead conversations accumulate, and deleting them loses what was
 learned. Therefore: distill, then delete — and feed the distillate back in.
 
-**Implementation** — `nagent-distill` scans the root and classifies every
+**Implementation** — `nala-distill` scans the root and classifies every
 artifact: live conversations, user-kept saves, prunable stale splits and
 dead index entries, and harvest candidates — conversation archives,
 delegated sub-conversations, per-file conversations whose target file is
@@ -470,10 +471,10 @@ before anyone pays it.
 **Example**
 
 ```bash
-nagent-distill                        # dry run: classify, estimate cost
-nagent-distill --apply                # harvest into {root}/knowledge/, reclaim
-nagent-distill --merge --apply        # dedup/compress the knowledge files
-nagent-distill --graduate --apply     # draft proven playbooks as tools
+nala-distill                        # dry run: classify, estimate cost
+nala-distill --apply                # harvest into {root}/knowledge/, reclaim
+nala-distill --merge --apply        # dedup/compress the knowledge files
+nala-distill --graduate --apply     # draft proven playbooks as tools
 ```
 
 **Build your own:** never delete an artifact you have not distilled, keep
@@ -500,8 +501,8 @@ and `cp` already do it. With file-based state, they often do.
 **Idea** — The project-local root turns every opportunity above from
 personal to shared.
 
-Commit `.nagent/` and knowledge, per-file conversations, campaign plans, and
-graduated tools in `.nagent/bin` arrive with `git clone`. A teammate's first
+Commit `.nala/` and knowledge, per-file conversations, campaign plans, and
+graduated tools in `.nala/bin` arrive with `git clone`. A teammate's first
 conversation starts from what the project already learned, and changes to
 the project's memory are reviewable in the same pull request as the code
 they describe. The artifacts compound across people, not just across
@@ -599,7 +600,7 @@ same commits as the target and labels high/medium/low co-edit rates.
 `format_file_history()` puts the table in file-edit context with guidance:
 inspect high co-edit files when the change may touch interfaces, tests,
 config, or paired code. Per-file knowledge notes harvested by
-`nagent-distill` join the same neighborhood.
+`nala-distill` join the same neighborhood.
 
 **Example**
 
@@ -633,19 +634,19 @@ patch artifact
 updated source file
 ```
 
-**Implementation** — Inline reads cap at 64 KB. `<nagent-file-read>` calls
-`nagent-file-split` beyond that. Splitting uses language-aware natural
+**Implementation** — Inline reads cap at 64 KB. `<nala-file-read>` calls
+`nala-file-split` beyond that. Splitting uses language-aware natural
 splitters (`txt`, `md`, `cpp`, `py`, `xml`, `js`, `ts`, `json`, `yaml`,
 `go`, `rs`, `java`) that prefer structural boundaries and writes segment
 files plus `index.json`: source path, hash, size, line ranges, split type.
-`nagent-file-patch` validates the source hash (unless `--force`), merges
+`nala-file-patch` validates the source hash (unless `--force`), merges
 segments, writes a unified diff patch, applies it, and refreshes the index.
-`nagent-file-summarize` handles small files inline and large ones
+`nala-file-summarize` handles small files inline and large ones
 per-segment.
 
 Conversation-side budget tools: `--compact` rewrites the conversation
 against editable guidance; the knowledge digest is byte-capped before
-injection; and `<nagent-conversation>` spawns a child nagent with an
+injection; and `<nala-conversation>` spawns a child nala with an
 isolated conversation file — the parent keeps coordination, the child keeps
 the noise, and only the distilled result returns with its token totals
 rolled up. Delegation is context management before it is parallelism.
@@ -674,7 +675,7 @@ checkpoint (failure widens the raw tail instead of blocking), archives the
 conversation, and assembles a fresh window — initial context + `{checkpoint}`
 block + recent raw tail — deterministically, no LLM rewrite. A long task
 becomes an inspectable chain of window files linked by checkpoints, and the
-archives feed `nagent-distill`. Three config numbers, all verifiable with
+archives feed `nala-distill`. Three config numbers, all verifiable with
 `ls -l`.
 
 The initial context also directs the model to exploit conversations as data:
@@ -688,9 +689,9 @@ a judge, spending those tokens only when the decision warrants it.
 **Example**
 
 ```bash
-nagent-file-split --file src/big.py --output /tmp/big-split --json
+nala-file-split --file src/big.py --output /tmp/big-split --json
 # edit /tmp/big-split/big-0001.py
-nagent-file-patch --index /tmp/big-split/index.json --json
+nala-file-patch --index /tmp/big-split/index.json --json
 ```
 
 **Build your own:** chunking is a data structure — index it, hash the
@@ -714,8 +715,8 @@ main conversation
         +-- file C memory
 ```
 
-**Implementation** — `bin/nagent-file-edit` resolves a file-specific
-conversation and delegates to `bin/nagent --file-edit`. The index,
+**Implementation** — `bin/nala-file-edit` resolves a file-specific
+conversation and delegates to `bin/nala --file-edit`. The index,
 `conversations/file-index-{pid}.json`, keys files by stable file id
 (device + inode via `file_id_for_path()`), so renames keep their memory. The
 per-file conversation's initial context carries the file's history block,
@@ -728,7 +729,7 @@ Write authority is bounded per mode:
 | Main conversation | `/tmp`, `/var/tmp`, or `$TMPDIR` only.                                |
 | Per-file edit     | Target file (by path or file id), or split segments for that source.  |
 
-Rejected writes append `<nagent-write-result status="error">` to the
+Rejected writes append `<nala-write-result status="error">` to the
 conversation. The value of uniqueness: investigations, dead ends, and local
 assumptions accumulate next to the artifact they concern; the main
 conversation stays small; and the write boundary is a property of the file,
@@ -737,8 +738,8 @@ not of whoever happens to be running a session.
 **Example**
 
 ```bash
-nagent-file-edit --file src/foo.py "add error handling"
-nagent --list-file-edits
+nala-file-edit --file src/foo.py "add error handling"
+nala --list-file-edits
 ```
 
 **Build your own:** when work orbits one artifact, store memory on that
@@ -764,7 +765,7 @@ hand-editable `index.yaml` spine (tree of item ids, statuses, `blocked_by`
 edges, review thresholds, dispatch budget), per-item `items/{id}/item.yaml`
 detail, and a per-item conversation — artifact-local memory where the
 artifact is a unit of work, continuable across dispatches. The one-pass
-driver, `nagent-campaign update`: merge worker results, route answered
+driver, `nala-campaign update`: merge worker results, route answered
 questions, check completion conditions, gate decomposition proposals,
 dispatch unblocked todo leaves, then exit. Four invariants are load-bearing:
 
@@ -816,12 +817,12 @@ items:
 ```
 
 ```bash
-nagent-campaign new "Migrate config format" --goal "Replace the loader."
-nagent-campaign add migrate-config-format "Inventory call sites"
-nagent-campaign update migrate-config-format --dry-run   # preview the pass
-nagent-campaign update migrate-config-format             # merge, check, gate, dispatch
-nagent-campaign review migrate-config-format             # pending proposals + scope
-nagent-campaign confirm migrate-config-format            # accept the plan change
+nala-campaign new "Migrate config format" --goal "Replace the loader."
+nala-campaign add migrate-config-format "Inventory call sites"
+nala-campaign update migrate-config-format --dry-run   # preview the pass
+nala-campaign update migrate-config-format             # merge, check, gate, dispatch
+nala-campaign review migrate-config-format             # pending proposals + scope
+nala-campaign confirm migrate-config-format            # accept the plan change
 ```
 
 **Build your own:** plan-as-artifact plus a dumb driver beats
@@ -837,16 +838,16 @@ being data.
 **Idea** — Use a framework when it buys something concrete. The question to
 ask first is who owns the data.
 
-nagent uses plain files, Python, subprocesses, and structured text. The
+nala uses plain files, Python, subprocesses, and structured text. The
 interesting part is artifact management and explicit data flow, not tool
 calling. The point is not "frameworks bad." The point is that the inputs to
 the system — prompts, conversations, plans, tool results, summaries,
 indexes, patches, harvested knowledge — should not be trapped inside an
 opaque layer that hides, rewrites, stores, or modifies them beyond the
-transformations LLM providers already perform. nagent keeps as much control
+transformations LLM providers already perform. nala keeps as much control
 as it can by making every input transparent and editable.
 
-| Framework-style system       | nagent                  |
+| Framework-style system       | nala                  |
 | ---------------------------- | ----------------------- |
 | hidden or managed state      | explicit files          |
 | session memory               | artifact memory         |
@@ -855,7 +856,7 @@ as it can by making every input transparent and editable.
 | long-lived agent abstraction | disposable workers      |
 | opaque orchestration         | visible transformations |
 
-| Common term | nagent framing                      |
+| Common term | nala framing                      |
 | ----------- | ----------------------------------- |
 | memory      | editable artifact                   |
 | retrieval   | preserved work / historical context |
@@ -909,15 +910,15 @@ main()
 Then:
 
 ```text
-bin/helpers/nagent_llm.py
-bin/helpers/nagent_cli.py
-bin/helpers/nagent_tags.py
-bin/helpers/nagent_file_edit_lib.py
-bin/helpers/nagent_file_split_lib.py
-bin/helpers/nagent_file_patch_lib.py
-bin/helpers/nagent_file_summarize_lib.py
-bin/helpers/nagent_distill_lib.py
-bin/helpers/nagent_campaign_lib.py
+bin/helpers/nala_llm.py
+bin/helpers/nala_cli.py
+bin/helpers/nala_tags.py
+bin/helpers/nala_file_edit_lib.py
+bin/helpers/nala_file_split_lib.py
+bin/helpers/nala_file_patch_lib.py
+bin/helpers/nala_file_summarize_lib.py
+bin/helpers/nala_distill_lib.py
+bin/helpers/nala_campaign_lib.py
 ```
 
 Tests are executable notes: parser and protocol, conversation lifecycle,
@@ -932,38 +933,41 @@ checkpoint triggers and rebuild, providers, tool descriptions, JSON output.
 # Setup
 
 ```bash
-pip install -r requirements.txt
+python3 -m venv .venv
+source .venv/bin/activate
+pip install openai pyyaml  # dependencies for OpenRouter; requirements.txt includes other providers
 export PATH="$PWD/bin:$PATH"
-mkdir -p ~/.nagent
-cp config.example.json ~/.nagent/config.json
+mkdir -p ~/.nala
+cp config.example.json ~/.nala/config.json
+read -rsp "OpenRouter API key: " OPENROUTER_API_KEY; echo
+export OPENROUTER_API_KEY
 ```
 
-The root: inside a git repo, `{toplevel}/.nagent` (created on first use, with
-a `.gitignore` covering `splits/`); outside, `~/.nagent`; `--root` overrides.
+The root: inside a git repo, `{toplevel}/.nala` (created on first use, with
+a `.gitignore` covering `splits/`); outside, `~/.nala`; `--root` overrides.
 
-Config: CLI flags → `NAGENT_CONFIG` → project `.nagent/config.json` →
-`~/.nagent/config.json`.
+Config: CLI flags → `NALA_CONFIG` → project `.nala/config.json` →
+`~/.nala/config.json`.
 
 ```json
 {
-  "provider": "openai",
-  "model": "gpt-5.5",
+  "provider": "openrouter",
+  "model": "deepseek/deepseek-v4.1-flash",
   "checkpoint_interval_minutes": 60,
   "checkpoint_max_new_kb": 256,
   "rebuild_at_kb": 384,
-  "context_window_tokens": 0,
-  "reasoning": 3
+  "context_window_tokens": 0
 }
 ```
 
 `reasoning` sets how hard the model thinks. Give it an **integer 1–5** (a
-portable "N/5" dial, clamped to range) and nagent maps it to the active
+portable "N/5" dial, clamped to range) and nala maps it to the active
 provider's native control; or give it a **provider-specific string** (e.g.
 `"xhigh"`, `"minimal"`) which is passed through verbatim. Omit it for the
-model's default. `--reasoning` overrides the config per run, and `nagent
+model's default. `--reasoning` overrides the config per run, and `nala
 --status` prints the provider-native name the level resolved to.
 
-| `reasoning` | `anthropic` (`effort`) | `openai` (`effort`) | `google` (`thinking_budget`) | `together` / `cursor` / `claude-code` |
+| `reasoning` | `anthropic` (`effort`) | `openai` (`effort`) | `google` (`thinking_budget`) | `openrouter` / `together` / `cursor` / `claude-code` |
 | ----------- | ---------------------- | ------------------- | ---------------------------- | ------------------------------------- |
 | `1`         | `low`                  | `minimal`           | `0` (off)                    | — (reasoning is intrinsic;            |
 | `2`         | `medium`               | `low`               | `4096`                       | set a provider-specific string        |
@@ -979,14 +983,15 @@ tail) when **either** trigger fires first: the byte ceiling `rebuild_at_kb`, or
 a per-model **token cap** — the estimated request reaching
 `CONTEXT_WINDOW_SAFETY_FRACTION` (0.85) of the model's context window. The
 window comes from a verified built-in table (`MODEL_CONTEXT_WINDOWS` in
-`nagent_llm.py`; e.g. `deepseek-ai/DeepSeek-V4-Pro` = 512000 tokens). For a
-model nagent doesn't know, set `context_window_tokens` in config; left at `0`
+`nala_llm.py`; e.g. `deepseek-ai/DeepSeek-V4-Pro` = 512000 tokens). For a
+model nala doesn't know, set `context_window_tokens` in config; left at `0`
 and absent from the table, only the byte ceiling applies (no window is guessed).
 The token cap is what protects **small-window** models, where `rebuild_at_kb`
 is far too high to fire in time.
 
 | Provider      | Default model       | Credential environment variable         |
 | ------------- | ------------------- | --------------------------------------- |
+| `openrouter`  | `deepseek/deepseek-v4.1-flash` | `OPENROUTER_API_KEY` |
 | `openai`      | `gpt-5.5`           | `OPENAI_API_KEY`                        |
 | `anthropic`   | `claude-sonnet-4-6` | `ANTHROPIC_API_KEY`                     |
 | `google`      | `gemini-2.5-flash`  | `GOOGLE_API_KEY` or `GEMINI_API_KEY`    |
@@ -999,49 +1004,49 @@ Code via the Claude Agent SDK, so authentication is whatever Claude Code is
 logged in as (subscription or API key). The `default` model — same as
 omitting `--model` — means Claude Code's own configured model; any Claude
 model id or alias (`sonnet`, `opus`, `haiku`) overrides it. Tools are
-disabled for plain text generation; `nagent-llm-upload` permits only the Read
+disabled for plain text generation; `nala-llm-upload` permits only the Read
 tool so Claude Code can read the file locally.
 
 # Common Commands
 
 ```bash
-nagent "your prompt here"
-echo "prompt from stdin" | nagent
-nagent "Use this instruction, then read stdin:" -
-nagent --status --json
-nagent --list-models --json
-nagent --list-providers
-nagent --list-conversations
-nagent --clear
-nagent --save-conversation saved-copy
-nagent --summarize-conversation saved-copy
-nagent --load-conversation saved-copy
-nagent --branch-conversation saved-copy
-nagent --summarize
-nagent --compact
-nagent --edit-conversation "summarize useful parts and remove noise"
-nagent --file-edit src/foo.py "make this change"
-nagent --list-file-edits
+nala "your prompt here"
+echo "prompt from stdin" | nala
+nala "Use this instruction, then read stdin:" -
+nala --status --json
+nala --list-models --json
+nala --list-providers
+nala --list-conversations
+nala --clear
+nala --save-conversation saved-copy
+nala --summarize-conversation saved-copy
+nala --load-conversation saved-copy
+nala --branch-conversation saved-copy
+nala --summarize
+nala --compact
+nala --edit-conversation "summarize useful parts and remove noise"
+nala --file-edit src/foo.py "make this change"
+nala --list-file-edits
 
-nagent-llm-text --file question.txt --json
-nagent-llm-upload --file diagram.png --prompt "Explain the diagram." --json
-nagent-file-edit --file src/foo.py "add validation"
-nagent-file-split --file src/big.py --output /tmp/big-split --json
-nagent-file-patch --index /tmp/big-split/index.json --json
-nagent-file-summarize --file src/big.py --json
+nala-llm-text --file question.txt --json
+nala-llm-upload --file diagram.png --prompt "Explain the diagram." --json
+nala-file-edit --file src/foo.py "add validation"
+nala-file-split --file src/big.py --output /tmp/big-split --json
+nala-file-patch --index /tmp/big-split/index.json --json
+nala-file-summarize --file src/big.py --json
 
-nagent-distill                        # dry run: classify artifacts, estimate harvest cost
-nagent-distill --apply                # harvest knowledge into {root}/knowledge/, reclaim space
-nagent-distill --apply --no-harvest   # reclaim only, no LLM pass
-nagent-distill --merge --apply        # dedup/compress the knowledge files
-nagent-distill --graduate --apply     # draft proven playbooks as tools/prompts
+nala-distill                        # dry run: classify artifacts, estimate harvest cost
+nala-distill --apply                # harvest knowledge into {root}/knowledge/, reclaim space
+nala-distill --apply --no-harvest   # reclaim only, no LLM pass
+nala-distill --merge --apply        # dedup/compress the knowledge files
+nala-distill --graduate --apply     # draft proven playbooks as tools/prompts
 
-nagent-campaign new "Migrate config" --goal "Replace the loader."
-nagent-campaign add migrate-config "Inventory call sites"
-nagent-campaign update migrate-config --dry-run   # preview one driver pass
-nagent-campaign update migrate-config             # merge, check, gate, dispatch
-nagent-campaign review migrate-config             # inspect pending proposals
-nagent-campaign confirm migrate-config            # accept the plan change
+nala-campaign new "Migrate config" --goal "Replace the loader."
+nala-campaign add migrate-config "Inventory call sites"
+nala-campaign update migrate-config --dry-run   # preview one driver pass
+nala-campaign update migrate-config             # merge, check, gate, dispatch
+nala-campaign review migrate-config             # inspect pending proposals
+nala-campaign confirm migrate-config            # accept the plan change
 ```
 
 `--help` for flags. `--description` for what a tool contributes to startup
@@ -1053,7 +1058,12 @@ context.
 python3 -m unittest discover -s tests -v
 ```
 
-Some tests mock providers. Live integration tests need real credentials.
+The test suite needs `openai`, `pyyaml`, and `google-genai` installed.
+Live OpenRouter tests are opt-in and need `OPENROUTER_API_KEY`:
+
+```bash
+NALA_LIVE_TESTS=1 python3 -m unittest discover -s tests -p test_nala.py -k LiveIntegrationTests -v
+```
 
 # License
 

@@ -2,20 +2,20 @@
 
 Status: open
 Filed: 2026-06-13
-Area: `bin/nagent` — `run_agent_loop` retry branches
+Area: `bin/nala` — `run_agent_loop` retry branches
 
 ## Context
 
 Commit 065168c made the success path bias-safe: a turn that contained
 non-protocol content (a leaked `<thought>`, an echoed wrapper, stray prose) is
 stored *cleaned* in the conversation, and the raw output is preserved in a
-`{conversation}.invalid.{guid}` sidecar linked from `<nagent-turn-status>`. The
+`{conversation}.invalid.{guid}` sidecar linked from `<nala-turn-status>`. The
 conversation — which is the next generation's input — therefore can't bias the
 model toward repeating the bad pattern.
 
 The two *retry* branches in `run_agent_loop` were left out of that treatment:
 
-- **Malformed known tag** (hard parse error, e.g. unclosed `<nagent-write>`):
+- **Malformed known tag** (hard parse error, e.g. unclosed `<nala-write>`):
   appends `<agent-response>{raw}</agent-response>` + a `<system>` correction,
   then retries.
 - **No actionable tags** (the turn was only junk): same shape, then retries.
@@ -45,7 +45,7 @@ file, not appending — a larger change than the success-path fix.
 ## Options (with cost)
 
 1. **Strip on retry too, immediately.** Store only the `<system>` correction
-   (which already names the specific error, e.g. "missing `</nagent-write>`")
+   (which already names the specific error, e.g. "missing `</nala-write>`")
    plus a sidecar of the raw; never store the raw inline.
    - Cost: small code change; risk that the model self-corrects worse without
      seeing its own prior text. Unverified — would need an A/B on a leak-prone

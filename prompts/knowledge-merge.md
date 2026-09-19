@@ -1,6 +1,6 @@
 # Knowledge merge
 
-You are given one knowledge category file from a nagent knowledge store.
+You are given one knowledge category file from a nala knowledge store.
 Rewrite it: deduplicate, merge overlapping items, and compress wording —
 without losing a single distinct fact.
 

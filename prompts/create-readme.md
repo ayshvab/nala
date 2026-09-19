@@ -1,18 +1,18 @@
 # Prep
 
-Read bin/nagent.
-Run --description on every executable in bin/ (this includes nagent-distill
-and nagent-campaign).
-Read the helper modules under bin/helpers/ — including nagent_tags.py and
-nagent_distill_lib.py — and the tests when more detail is needed.
+Read bin/nala.
+Run --description on every executable in bin/ (this includes nala-distill
+and nala-campaign).
+Read the helper modules under bin/helpers/ — including nala_tags.py and
+nala_distill_lib.py — and the tests when more detail is needed.
 Read context.yaml and context/ at the repository root.
 
 Ground every claim in the implementation that actually exists. Do not rely
 only on this prompt or on an existing README. Do not invent features.
 
-# Create the nagent README
+# Create the nala README
 
-Write `README.md` for the `nagent` project.
+Write `README.md` for the `nala` project.
 
 The README is not marketing material and not API documentation. It is a
 **progressive teaching document**: each part earns the next. A reader who
@@ -28,7 +28,7 @@ The README communicates one central idea:
 
 **The agent is not the thing. The data is the thing.**
 
-nagent is a small reference example of a data-oriented approach to AI
+nala is a small reference example of a data-oriented approach to AI
 workflows. Do not describe it as an architecture or as a framework.
 
 The introduction must also call out this claim:
@@ -37,7 +37,7 @@ The introduction must also call out this claim:
 
 Meaning: when a generator produces output you do not like, fix the generator
 or the inputs to that generator. Do not merely patch the generated output. In
-nagent, the conversation is one of those inputs. To improve generation, that
+nala, the conversation is one of those inputs. To improve generation, that
 input must be saveable, maintainable, organizable, and editable.
 
 LLMs are temporary. Processes are temporary. Sub-conversations are temporary.
@@ -80,7 +80,7 @@ Editing it is maintenance, not corruption. Cover both explicit maintenance
 commands and implicit file editing. Then teach that ownership has scopes:
 memory that belongs to a project was trapped in a personal dotdir, therefore
 the root moves into the repository — what a project learned travels with the
-project, and personal rules (`~/.nagent`) still apply everywhere. The
+project, and personal rules (`~/.nala`) still apply everywhere. The
 prompt-side inputs the user owns arrive in the same layers: install, user,
 project, root — each one a directory of plain files, each overridable by the
 more specific one.
@@ -93,9 +93,9 @@ conversations into a durable knowledge store that feeds back into every
 future conversation; diffing, branching, versioning, and scripting
 conversations; replaying and auditing what happened. And because the root is
 project-local, the artifacts compound across people, not just across
-sessions: commit `.nagent/` and a collaborator's first conversation already
+sessions: commit `.nala/` and a collaborator's first conversation already
 knows what yours learned — knowledge, per-file memory, and graduated tools
-in `.nagent/bin` arrive with `git clone`, reviewable in the same pull
+in `.nala/bin` arrive with `git clone`, reviewable in the same pull
 requests as the code they describe. Show concrete problems that become easy.
 
 **Part V — Name the principles.** *Teach: data-oriented principles.* The
@@ -148,14 +148,14 @@ sections (setup, providers, common commands, tests).
 
 # Terminology Rules
 
-- Prefer **conversation** for a running nagent loop and its durable state.
+- Prefer **conversation** for a running nala loop and its durable state.
 - Prefer **sub-conversation** for delegated child work.
-- Do not loosely call nagent conversations "agents" or delegated work
+- Do not loosely call nala conversations "agents" or delegated work
   "sub-agents."
-- Keep **nagent** unchanged; it is the system name; it means **not-an-agent**.
+- Keep **nala** unchanged; it is the system name; credit the upstream [nagent](https://github.com/macton/nagent) ("not-an-agent") fork.
 - The thesis line and Part II/Part VII comparisons may use the word "agent"
   when explaining the confusing term rather than naming the approach.
-- The delegation protocol tag is `<nagent-conversation>`, not `<nagent-agent>`.
+- The delegation protocol tag is `<nala-conversation>`, not `<nala-agent>`.
 - Prefer "historical co-edit rate" or "changed with this file" over ambiguous
   phrases such as "likelihood of same-commit edit."
 
@@ -193,13 +193,13 @@ The central thesis line must appear prominently in the introduction.
 After the core thesis and before Part I, include a short **What It Looks
 Like** block with two or three examples of non-trivial tasks.
 
-- Use only the `nagent` command in these examples. Do not name helper CLIs.
+- Use only the `nala` command in these examples. Do not name helper CLIs.
 - Choose tasks that imply multiple turns: reading files, running shell
   commands, delegating to sub-conversations, iterating until done, or pausing
   to explain a plan before editing.
 - Frame expectations: one terminal prompt can trigger a long internal loop
   while the conversation file accumulates the work.
-- Do not oversell autonomy. nagent follows the loop and obeys normal OS and
+- Do not oversell autonomy. nala follows the loop and obeys normal OS and
   filesystem permissions.
 
 ---
@@ -210,7 +210,7 @@ Programmers who know basic Python and command-line tools, are curious how
 conversation loops actually work, appreciate explicit state and inspectable
 systems, may want to build a small tool without a framework, and understand
 why durable artifacts can matter more than runtime behavior. Do not assume
-the reader knows nagent's internals.
+the reader knows nala's internals.
 
 ---
 
@@ -267,24 +267,24 @@ Organize the main body as numbered sections grouped under the arc's parts.
 Each major numbered section must include:
 
 1. **Idea** — the design idea, stated as the claim it teaches.
-2. **Implementation** — where and how nagent implements it.
+2. **Implementation** — where and how nala implements it.
 3. **Example** — a command, tag, table, or pseudocode block.
 4. **Build your own:** — the reusable pattern.
 
 ## Part I sections
 
 **Text in, text out.** The smallest useful primitive: file in, text out.
-`bin/nagent-llm-text`, `generate_text_with_usage()` in
-`bin/helpers/nagent_llm.py`. Provider support covers `openai`, `anthropic`,
+`bin/nala-llm-text`, `generate_text_with_usage()` in
+`bin/helpers/nala_llm.py`. Provider support covers `openrouter` (default: `deepseek/deepseek-v4.1-flash`, credential: `OPENROUTER_API_KEY`), `together`, `openai`, `anthropic`,
 `google`, `cursor`, and `claude-code` (which runs through the locally
 installed Claude Code via the Claude Agent SDK and uses Claude Code's own
 login — no API key in the environment; model `default` means Claude Code's
-configured model). `bin/nagent-llm-upload` is the sibling for files that need
+configured model). `bin/nala-llm-upload` is the sibling for files that need
 upload APIs. Everything else is orchestration around this primitive.
 
 ```bash
 echo "What is 2+2?" > question.txt
-nagent-llm-text --file question.txt
+nala-llm-text --file question.txt
 ```
 
 **Teach the model an output format.** The startup prompt lists the only tags
@@ -293,23 +293,23 @@ inside `<initial_context>`, so refreshed context carries the current protocol
 with it. The context states the protocol rules explicitly: tag bodies are raw
 text (no escaping; the first matching close tag ends a body), nothing outside
 tags, and — the loop contract — action results come back appended as
-`<nagent-*-result>` blocks before the model is called again, so it must never
+`<nala-*-result>` blocks before the model is called again, so it must never
 fabricate results, and an error result is data that should change the
 approach. The context is ordered stable-to-volatile (role and protocol first,
 instance facts and environment last) so request prefixes stay byte-identical
 across conversations of the same mode. Tokenization lives in the shared
-parser `bin/helpers/nagent_tags.py`; `parse_response()` validates tag shapes
+parser `bin/helpers/nala_tags.py`; `parse_response()` validates tag shapes
 and is strict — recognized tags and whitespace, nothing else. Include the tag
 table:
 
-- `<nagent-response>...</nagent-response>`
-- `<nagent-read path="..."/>`
-- `<nagent-file-read path="..."/>`
-- `<nagent-file-patch index="..."/>`
-- `<nagent-write path="...">...</nagent-write>`
-- `<nagent-shell>...</nagent-shell>`
-- `<nagent-next>...</nagent-next>`
-- `<nagent-conversation>...</nagent-conversation>`
+- `<nala-response>...</nala-response>`
+- `<nala-read path="..."/>`
+- `<nala-file-read path="..."/>`
+- `<nala-file-patch index="..."/>`
+- `<nala-write path="...">...</nala-write>`
+- `<nala-shell>...</nala-shell>`
+- `<nala-next>...</nala-next>`
+- `<nala-conversation>...</nala-conversation>`
 
 Explain result wrappers appended by handlers, and that they are conversation
 data, not hidden return values.
@@ -325,7 +325,7 @@ loop:
         run those actions
         append results to conversation file
         continue loop
-    if response contains <nagent-response>:
+    if response contains <nala-response>:
         print it and stop
 ```
 
@@ -335,7 +335,7 @@ Code path: `main()` → `run_agent_loop()` → `call_llm()` → `parse_response(
 hidden control flow. Reads of unreadable files come back as error result tags
 for the same reason. Token/status accounting at a high level (`TokenStats`,
 recursive rollup from children; cached prompt tokens fold back into input
-counts). The loop passes stable prefix boundaries to `nagent-llm-text`
+counts). The loop passes stable prefix boundaries to `nala-llm-text`
 (`--cache-prefix-chars`) so providers that cache on block boundaries reuse
 the shared context each turn. Controlled writes in main mode: structured
 writes go to temp directories only; explain that this is convention, not a
@@ -376,21 +376,21 @@ user-editable compaction prompt). Implicit maintenance: conversations are
 ordinary files — open, trim, rewrite, diff, copy, version, script.
 
 The root is project-local: inside a git repository the default root is
-`{toplevel}/.nagent` — conversations, knowledge, and per-file memory live
+`{toplevel}/.nala` — conversations, knowledge, and per-file memory live
 with the repo and can be committed and shared (with the review-first secrets
-caveat); `--root` overrides; outside a repo the root is `~/.nagent`; a newly
+caveat); `--root` overrides; outside a repo the root is `~/.nala`; a newly
 created root ships a `.gitignore` covering `splits/` only.
 
 User-owned prompt-side inputs come in four layers, least personal first,
 each a `context.yaml` (recursive expansion) or `context.md`: install (the
-nagent folder — this repository ships one pointing at
-`context/data-oriented-design.md`), user (`~/.nagent`, read in every run),
-project (the git toplevel), and root (the project's `.nagent`). A layer
+nala folder — this repository ships one pointing at
+`context/data-oriented-design.md`), user (`~/.nala`, read in every run),
+project (the git toplevel), and root (the project's `.nala`). A layer
 whose directory equals an earlier layer's is included once. The prompts
 (compaction, harvest) resolve project root → user → install; tools are
-discovered from install `bin/` + `~/.nagent/bin/` + project `.nagent/bin/`
+discovered from install `bin/` + `~/.nala/bin/` + project `.nala/bin/`
 with the most specific layer shadowing by basename; config resolves CLI →
-`NAGENT_CONFIG` → project `.nagent/config.json` → `~/.nagent/config.json`.
+`NALA_CONFIG` → project `.nala/config.json` → `~/.nala/config.json`.
 
 ## Part IV sections
 
@@ -405,7 +405,7 @@ git history -> commit/file summaries -> file-edit initial context -> better edit
 
 Historical context is a hint, not a command.
 
-**Harvest knowledge; reclaim space.** `nagent-distill` classifies artifacts
+**Harvest knowledge; reclaim space.** `nala-distill` classifies artifacts
 (live / user-kept / prune / harvest+delete; unknown is kept, never deleted),
 distills dead conversations through a user-editable harvest prompt into
 category files under the root's `knowledge/` — facts, decisions, tasks
@@ -425,8 +425,8 @@ audit exactly what the model saw; replay a prompt against a different
 provider by pointing the same file at it.
 
 **Project memory is team memory.** The project-local root turns every
-opportunity above from personal to shared: commit `.nagent/` and knowledge,
-per-file conversations, and graduated tools in `.nagent/bin` arrive with
+opportunity above from personal to shared: commit `.nala/` and knowledge,
+per-file conversations, and graduated tools in `.nala/bin` arrive with
 `git clone`; a teammate's first conversation starts from what the project
 already learned, and changes to the project's memory are reviewable in the
 same pull request as the code. State the caveat plainly: conversations
@@ -466,11 +466,11 @@ inspection, not automatic edit targets.** Per-file knowledge notes
 (`knowledge/files/{file_id}.md`) are part of the neighborhood.
 
 **Managing context and large files.** Context windows are a budget; respond
-explicitly: inline reads cap at 64KB; `<nagent-file-read>` auto-splits via
+explicitly: inline reads cap at 64KB; `<nala-file-read>` auto-splits via
 language-aware natural splitters into segment files plus `index.json` (source
-path, hash, line ranges); edits target segments; `nagent-file-patch`
+path, hash, line ranges); edits target segments; `nala-file-patch`
 validates the source hash, merges, writes a unified diff patch, refreshes the
-index. Summaries via `nagent-file-summarize` (split-summarize over 64KB).
+index. Summaries via `nala-file-summarize` (split-summarize over 64KB).
 Conversation-side: `--compact`, the bounded knowledge digest, and disposable
 sub-conversations as context isolation — parent keeps coordination, child
 keeps noisy exploration, parent receives a distilled result. Delegation is
@@ -516,7 +516,7 @@ Implementation to cover: `{root}/campaigns/{slug}/` with a hand-editable
 thresholds, dispatch budget) and per-item `items/{id}/item.yaml` detail plus
 a per-item conversation — artifact-local memory where the artifact is a unit
 of work, continuable across dispatches. The one-pass driver
-(`nagent-campaign update`): merge worker results, route answered questions,
+(`nala-campaign update`): merge worker results, route answered questions,
 check completion conditions, gate decomposition proposals, dispatch
 unblocked todo leaves, then exit — no resident process; looping is the
 user's composition. Teach the four invariants as design decisions:
@@ -556,7 +556,7 @@ orchestrator needs a runtime, your plan has stopped being data.
 a framework when it buys something concrete. The argument is ownership and
 visibility of the inputs. Include both tables:
 
-| Framework-style system | nagent |
+| Framework-style system | nala |
 | --- | --- |
 | hidden or managed state | explicit files |
 | session memory | artifact memory |
@@ -565,7 +565,7 @@ visibility of the inputs. Include both tables:
 | long-lived agent abstraction | disposable workers |
 | opaque orchestration | visible transformations |
 
-| Common term | nagent framing |
+| Common term | nala framing |
 | --- | --- |
 | memory | editable artifact |
 | retrieval | preserved work / historical context |
@@ -584,20 +584,20 @@ history into artifact context; harvest dead conversations into a knowledge
 store and inject a bounded digest; add per-artifact memory with stable ids
 and bounded write authority; add split/index/patch for large files; add child
 loops for delegation. Include the code reading order and the helper-module
-list (nagent_llm.py, nagent_cli.py, nagent_tags.py, nagent_file_edit_lib.py,
-nagent_file_split_lib.py, nagent_file_patch_lib.py,
-nagent_file_summarize_lib.py, nagent_distill_lib.py). Tests are executable notes.
+list (nala_llm.py, nala_cli.py, nala_tags.py, nala_file_edit_lib.py,
+nala_file_split_lib.py, nala_file_patch_lib.py,
+nala_file_summarize_lib.py, nala_distill_lib.py). Tests are executable notes.
 
 **Setup / Common Commands / Tests.** Ground in the current implementation:
 pip install, PATH, the project-local root default
-(`{git-toplevel}/.nagent`, `--root` override, `~/.nagent` outside repos,
-scaffolded `.gitignore`), config resolution (CLI → `NAGENT_CONFIG` →
-project `.nagent/config.json` → `~/.nagent/config.json`), the provider
+(`{git-toplevel}/.nala`, `--root` override, `~/.nala` outside repos,
+scaffolded `.gitignore`), config resolution (CLI → `NALA_CONFIG` →
+project `.nala/config.json` → `~/.nala/config.json`), the provider
 table including `claude-code` (default model `default`, no credential env
 var — uses the local Claude Code login), the common command list including
 `--status`, `--list-models`, `--list-conversations`,
-`--branch-conversation`, `--compact`, `nagent-distill`
-dry-run/apply/no-harvest, the `nagent-campaign` subcommands
+`--branch-conversation`, `--compact`, `nala-distill`
+dry-run/apply/no-harvest, the `nala-campaign` subcommands
 (new/add/status/review/confirm/update --dry-run), and the unittest
 invocation.
 
@@ -613,7 +613,7 @@ Verify the README explicitly explains all of these:
 - [ ] conversation maintenance commands incl. branch and compact
 - [ ] project-local root default; committed/shareable project memory
 - [ ] context in four layers (install/user/project/root) with dedup;
-      layered prompts, tools (`.nagent/bin` shadowing), and config
+      layered prompts, tools (`.nala/bin` shadowing), and config
 - [ ] artifact-local memory; per-file conversations; stable file ids
 - [ ] bounded write authority per mode (temp-only vs per-file)
 - [ ] repository history as data; commit summaries; file summaries; editors
@@ -678,7 +678,7 @@ target file
 Include tables for: hidden state vs explicit artifacts; session memory vs
 artifact memory; retrieval vs preserved work; long-lived agent abstractions
 vs disposable workers; object graphs vs data artifacts; framework-style
-systems vs nagent; the tag protocol; the co-edit example; the provider table.
+systems vs nala; the tag protocol; the co-edit example; the provider table.
 
 ---
 
@@ -690,7 +690,7 @@ helpful, Markdown tables for reference material, horizontal rules between
 major sections when they help. Prefer **Build your own:** notes over
 implementation trivia. Mention source files and functions only when they help
 the reader find the implementation. Do not overstate safety. Do not describe
-nagent as a product or an autonomous intelligence. Teach the data flow, why
+nala as a product or an autonomous intelligence. Teach the data flow, why
 the state is explicit, and why artifacts matter more than workers.
 
 ---
@@ -702,7 +702,7 @@ the state is explicit, and why artifacts matter more than workers.
       Mike Acton's direct, data-oriented voice — plain and honest, cutting
       through hype without mocking readers or other approaches.
 - [ ] The introduction includes **What It Looks Like** with two or three
-      multi-turn `nagent`-only examples.
+      multi-turn `nala`-only examples.
 - [ ] The body follows the teaching arc in order: build it → rename it → own
       the data → exploit the files → name the principles → neighborhoods,
       context/large files, per-file conversations → frameworks.
@@ -715,7 +715,7 @@ the state is explicit, and why artifacts matter more than workers.
       (problem → therefore → design).
 - [ ] Every major numbered section ends with **Build your own:**.
 - [ ] Every design claim is grounded in the current implementation — including
-      knowledge harvest (nagent-distill), install context, the shared tag parser,
+      knowledge harvest (nala-distill), install context, the shared tag parser,
       compaction, branching, and the claude-code provider.
 - [ ] Novelty is attributed to data flow and artifact management, not tool
       calling.

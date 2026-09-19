@@ -1,6 +1,6 @@
 # Knowledge graduation
 
-You are given the playbooks file from a nagent knowledge store. Identify
+You are given the playbooks file from a nala knowledge store. Identify
 entries that deserve to graduate from prose into reusable artifacts.
 
 Return only JSON in this form (no prose, no markdown fence):
@@ -19,7 +19,7 @@ Rules:
   anything environment-specific that would not survive a second machine.
 - A "tool" draft is a complete executable script (shebang line first). It
   must print its path and description and exit 0 when invoked with
-  --description, like every other nagent tool, and otherwise do the work.
+  --description, like every other nala tool, and otherwise do the work.
   Prefer #!/bin/sh or #!/usr/bin/env python3.
 - A "prompt" draft is a complete markdown instruction file.
 - Empty {"drafts": []} is valid and expected when nothing has earned
