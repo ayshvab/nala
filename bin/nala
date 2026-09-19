@@ -2780,7 +2780,7 @@ def main() -> int:
         ),
     )
     parser.add_argument(
-        "--conversation",
+        "--conversation", "--convo",
         help='Conversation name (default: latest-{hostname}-{pid}).',
     )
     parser.add_argument(

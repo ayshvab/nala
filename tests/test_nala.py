@@ -2203,6 +2203,19 @@ class CliTests(unittest.TestCase):
         env.pop("NALA_CONFIG", None)
         return env
 
+    def test_convo_alias_selects_same_conversation_as_long_option(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            outputs = []
+            for flag in ("--conversation", "--convo"):
+                result = subprocess.run(
+                    [str(NALA), "--root", tmp, flag, "alias-check", "--status", "--json"],
+                    capture_output=True, text=True, env=self.clean_env(),
+                )
+                self.assertEqual(result.returncode, 0, result.stderr)
+                outputs.append(json.loads(result.stdout))
+            self.assertEqual(outputs[0], outputs[1])
+            self.assertIn("alias-check", json.dumps(outputs[1]))
+
     def test_llm_text_missing_file(self):
         result = subprocess.run(
             [str(NALA_LLM_TEXT), "--file", "/nonexistent/nala-test.txt"],

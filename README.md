@@ -1055,6 +1055,25 @@ tool so Claude Code can read the file locally.
 
 # Common Commands
 
+`--convo NAME` is an alias for `--conversation NAME`. Use the same name to
+continue a conversation across terminal sessions:
+
+```bash
+nala --convo onboarding "Explain this project"
+nala --convo onboarding "Trace its main execution path"
+```
+
+To follow that conversation from another terminal in the same project:
+
+```bash
+tail -n 0 -F .nala/conversations/onboarding
+```
+
+The file updates after completed model turns and tool calls. Model tokens are
+currently buffered; this command does not show token-by-token generation.
+`<agent-response>` is a transcript wrapper added by nala; the model's final
+reply inside it uses `<nala-response>`.
+
 ```bash
 nala "your prompt here"
 echo "prompt from stdin" | nala
