@@ -96,6 +96,21 @@ conversation contains the complete native Jev request/result, with no duplicate
 audit added to the shortened parent. These are local evidence paths, not
 required runtime storage or request/response sidecars.
 
+Installed-version follow-up: `distill-final` preserved the ongoing read-only
+requirement explicitly in facts, passed all four checks, and reclaimed its
+450-byte synthetic source. Input/output remain inline in that conversation.
+The installed files matched the committed source by SHA-256.
+
+The final installed compaction trial (`compact-final`) did **not** pass. On a
+synthetic repeated-log fixture, DeepSeek produced about 129 KB of malformed
+output, including invented tool exchanges. Nala rejected it through the existing
+protocol recovery path. The isolated trial was stopped after over ten minutes,
+before an authentic Jev result or accepted rewrite appeared. The source remains
+in the normal conversation archive. Earlier successful compaction evidence does
+not establish reliability of this workflow; no claim that every compaction is
+reviewed is warranted. This is a main-model/protocol limitation, and the
+compaction integration remains explicitly prompt-guided.
+
 Open: a scalable full-source review for archives exceeding Jev's context/input
 limits. For now such distillation reviews fail and keep the original; do not
 silently truncate evidence or pretend a summary proves its own fidelity.
