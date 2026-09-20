@@ -18,7 +18,9 @@ Before your first consultation, run nala-ask-jev --guide for the input contract
 and examples. In nala use <nala-ask-jev>{\"state\":...,\"questions\":...}</nala-ask-jev>
 so the request/result appear directly in the conversation. In a terminal use
 nala-ask-jev --file request.json [--json]; --file - reads stdin. Input/output stay inline; no separate request/response files are created.
-Uses saved OpenRouter credentials."""
+Optional, disabled by default. The user enables it with NALA_JEV_ENABLED=1 or
+jev_enabled: true in nala config. On an error, continue the task without Jev;
+do not retry or change settings automatically. Uses saved OpenRouter credentials."""
 
 
 def main():
@@ -27,6 +29,7 @@ def main():
     parser.add_argument("--file", help="JSON object containing state and questions; - for stdin.")
     parser.add_argument("--json", action="store_true", help="Print the full input and response inline as JSON.")
     parser.add_argument("--guide", action="store_true", help="Print the bundled Jev consultation guide and examples.")
+    parser.add_argument("--config", type=Path, help="Nala config file (same resolution as nala when omitted).")
     args = parser.parse_args()
     if args.guide:
         print((Path(__file__).resolve().parent.parent / "prompts" / "ask-jev.md").read_text(encoding="utf-8"))
@@ -38,7 +41,7 @@ def main():
     except (OSError, UnicodeError) as exc:
         print(f"Error reading request: {exc}", file=sys.stderr)
         return 1
-    result = ask_jev(text)
+    result = ask_jev(text, config_path=args.config.expanduser() if args.config else None)
     print(dumps(result) if args.json else human_result(result))
     return 0 if result["status"] == "ok" else 1
 

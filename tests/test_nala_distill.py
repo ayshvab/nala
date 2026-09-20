@@ -150,6 +150,21 @@ class ScanClassificationTests(unittest.TestCase):
 
 
 class ApplyTests(unittest.TestCase):
+    def test_failed_harvest_still_consumes_source_byte_budget(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = make_root(tmp)
+            archives = []
+            for body in ("a" * 100, "b" * 100):
+                path = root / "conversations" / f"latest-host-1-{uuid.uuid4()}"
+                path.write_text(body)
+                archives.append(path)
+            with unittest.mock.patch.object(gc, "harvest_conversation", side_effect=RuntimeError("generation failed")) as harvest:
+                report = gc.run_gc(root, apply=True, max_harvest_bytes=100)
+            harvest.assert_called_once()
+            self.assertEqual(report["deferred"], 1)
+            self.assertEqual(len(report["failures"]), 1)
+            self.assertTrue(all(path.exists() for path in archives))
+
     def test_apply_harvests_merges_and_deletes(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = make_root(tmp)

@@ -46,6 +46,15 @@ def main():
         guide = run([root/'commands/nala-ask-jev', '--guide'])
         assert 'Question IDs' in guide.stdout and 'independent' in guide.stdout
         print('PASS: installed Jev guide is available outside checkout')
+        jev_input = root/'jev-input.json'
+        jev_input.write_text('{"state":"Only parser tests passed","questions":{"support":{"type":"noul","instructions":"Does state establish that every test passed?"}}}')
+        result = run([root/'commands/nala-ask-jev', '--file', jev_input, '--json'], ok=False)
+        assert result.returncode == 1 and 'Jev is disabled' in result.stdout, result.stdout
+        env['NALA_JEV_ENABLED'] = '1'
+        result = run([root/'commands/nala-ask-jev', '--file', jev_input, '--json'], ok=False)
+        assert result.returncode == 1 and 'missing credentials' in result.stdout, result.stdout
+        del env['NALA_JEV_ENABLED']
+        print('PASS: installed Jev is disabled by default and requires explicit opt-in')
         for project in ('project-a', 'project-b'):
             cwd = root/project
             cwd.mkdir()

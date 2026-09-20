@@ -54,7 +54,7 @@ from nala_file_patch_lib import apply_segment_patches
 from nala_file_split_lib import slugify
 from nala_distill_lib import digest_path, file_knowledge_path, knowledge_item_counts, root_size_bytes
 from nala_campaign_lib import campaign_status_lines
-from nala_jev import ask_jev, dumps as jev_json
+from nala_jev import ask_jev, dumps as jev_json, jev_enabled
 from nala_tags import (
     TagParseError,
     extract_block,
@@ -687,8 +687,17 @@ def build_initial_context(
     if campaign_item_dir is not None:
         # Campaign-scoped tools shadow everything for that campaign's workers.
         tool_dirs = tool_dirs + [campaign_item_dir.parent.parent / "bin"]
-    tools_section = collect_bin_tool_descriptions(tool_dirs)
+    use_jev = jev_enabled(config_path)
+    tools_section = collect_bin_tool_descriptions(tool_dirs, exclude=set() if use_jev else {"nala-ask-jev"})
     tools_block = f"\n{tools_section}\n" if tools_section else ""
+    jev_tag = (
+        "- <nala-ask-jev>{JSON object with state and questions}</nala-ask-jev> — optional evidence judgment; read nala-ask-jev --guide before first use. On error, continue without Jev.\n"
+        if use_jev else ""
+    )
+    jev_policy = (
+        "Jev is optional. Its failure is not a blocker: continue using the available evidence without retrying the consultation."
+        if use_jev else "Jev is disabled for this run. Continue without it; only the user changes its enablement."
+    )
 
     campaign_worker_block = ""
     if campaign_item_dir is not None:
@@ -784,13 +793,13 @@ Respond only with one or more of these structured tags (no other text):
 - <nala-file-patch index="{{index-json-path}}" /> — merge edited split segments back into the source file.
 - <nala-write path="{{file-path-to-write}}">{{file content}}</nala-write> — write a file inside your write boundary (see File editing).
 - <nala-shell>{{shell commands}}</nala-shell> — run shell commands; output is appended to this conversation.
-- <nala-ask-jev>{{JSON object with state and questions}}</nala-ask-jev> — ask Jev for typed judgments; read nala-ask-jev --guide before first use. The actual result is appended to this conversation.
-- <nala-next>{{prompt}}</nala-next> — append a prompt to yourself and continue reasoning.
+{jev_tag}- <nala-next>{{prompt}}</nala-next> — append a prompt to yourself and continue reasoning.
 - <nala-conversation>{{prompt}}</nala-conversation> — delegate a sub-task to an isolated sub-conversation.
 - <nala-conversation conversation-file="{{name-or-path}}">{{prompt}}</nala-conversation> — continue a named worker conversation, or start one from a file you wrote.
 - <nala-conversation conversation-name="{{saved-conversation-name}}">{{prompt}}</nala-conversation> — start a child from a saved conversation.
 
 Protocol rules:
+- {jev_policy}
 - Tag bodies are raw text. Do not escape characters. Never emit a literal close tag (e.g. </nala-shell>) inside a body; the first matching close tag ends the body.
 - Emit nothing outside tags. Prose, unknown tags, and reasoning leaks (e.g. <thought>) are ignored and take no action — the turn proceeds on whatever valid tags it contains, or asks you to retry if there are none. A misshapen nala tag (wrong attributes, missing body or close) comes back with a correction request.
 - After your action tags run, each result is appended to this conversation as a <nala-*-result> block and you are called again. Never fabricate results; act on the appended ones.
@@ -1451,9 +1460,9 @@ def execute_shell(commands: str, token_stats: TokenStats | None = None) -> str:
     return "\n".join(parts)
 
 
-def execute_ask_jev(content: str, token_stats: TokenStats) -> str:
+def execute_ask_jev(content: str, token_stats: TokenStats, config_path: Path | None = None) -> str:
     with wait_spinner("Asking Jev"):
-        record = ask_jev(content)
+        record = ask_jev(content, config_path=config_path)
     if record["status"] == "ok":
         usage = record["response"].get("usage", {})
         token_stats.add_recursive(usage.get("input_tokens", 0), usage.get("output_tokens", 0))
@@ -1659,7 +1668,7 @@ def process_tags(
             append_to_conversation(conversation_file, execute_shell(tag.content, token_stats))
             should_continue = True
         elif tag.kind == "ask_jev":
-            append_to_conversation(conversation_file, execute_ask_jev(tag.content, token_stats))
+            append_to_conversation(conversation_file, execute_ask_jev(tag.content, token_stats, getattr(llm, "config_path", None)))
             should_continue = True
         elif tag.kind == "conversation":
             append_to_conversation(

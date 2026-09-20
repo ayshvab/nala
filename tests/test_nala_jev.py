@@ -49,6 +49,11 @@ def http_response(payload):
 
 
 class JevTests(unittest.TestCase):
+    def setUp(self):
+        enabled = patch.dict(os.environ, {"NALA_JEV_ENABLED": "1"})
+        enabled.start()
+        self.addCleanup(enabled.stop)
+
     def test_batch_contract_keeps_full_input_output_without_creating_files(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -168,6 +173,9 @@ class JevTests(unittest.TestCase):
 
 class JevConversationTests(unittest.TestCase):
     def setUp(self):
+        enabled = patch.dict(os.environ, {"NALA_JEV_ENABLED": "1"})
+        enabled.start()
+        self.addCleanup(enabled.stop)
         self.mod = load_tool("nala")
 
     def test_native_tag_shape_and_literal_nested_tags(self):

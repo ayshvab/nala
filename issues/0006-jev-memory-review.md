@@ -1,5 +1,10 @@
 # Jev reviews for memory maintenance
 
+**Superseded:** automatic memory reviews were removed at the user's request.
+See [0007: optional Jev tool](0007-jev-opt-in.md) for current behavior. The text
+below records the experiment and its limitations; the memory-review helper
+and live fixture script it mentions have been removed.
+
 Implemented 2026-09-20. Follow-up to [the inline Jev tool](0005-jev-tool.md).
 
 ## Why

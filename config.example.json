@@ -1,6 +1,7 @@
 {
   "provider": "openrouter",
   "model": "deepseek/deepseek-v4.1-flash",
+  "jev_enabled": false,
   "checkpoint_interval_minutes": 60,
   "checkpoint_max_new_kb": 256,
   "rebuild_at_kb": 384,

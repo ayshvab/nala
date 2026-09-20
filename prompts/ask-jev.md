@@ -6,6 +6,13 @@ request. Use it when the judgment will inform the next step, or when the user
 asks. Jev returns typed values, not generated explanations, code, or plans.
 Keep exact parsing, arithmetic, tests, and action execution in ordinary tools.
 
+Jev is optional and disabled by default. The user can enable it with
+`NALA_JEV_ENABLED=1` or `"jev_enabled": true` in nala config. Environment values
+override config; `NALA_JEV_ENABLED=0` disables it. Only the user changes this
+setting. A disabled or failed consultation returns an inline error: continue
+the task using the available evidence without Jev. Do not retry automatically,
+change the setting yourself, or treat an unavailable judgment as a verdict.
+
 Prepare one JSON object with exactly `state` and `questions`. In nala, send it
 inside `<nala-ask-jev>...</nala-ask-jev>`. The driver appends an authentic
 `<nala-ask-jev-result>`; wait for that before interpreting a verdict. Read
@@ -84,11 +91,12 @@ JSON escapes such as `\u003c` for `<`; a literal close tag ends the action body.
 From a terminal, put the JSON object (without XML tags) into `request.json`:
 
 ```bash
-nala-ask-jev --file request.json
-nala-ask-jev --file request.json --json
+NALA_JEV_ENABLED=1 nala-ask-jev --file request.json
+NALA_JEV_ENABLED=1 nala-ask-jev --file request.json --json
 ```
 
 `--file -` accepts stdin, so you can use the CLI without creating an input file.
+`--config path/to/config.json` selects a custom nala config for this command.
 The CLI JSON contains the complete request and response. In a nala conversation,
 the action contains the exact state/questions and the following result contains
 the actual response, model, usage/cost when reported, and timing. No separate
@@ -102,25 +110,6 @@ OpenRouter key. It makes one request with a 45-second timeout and no automatic
 retry. The local 128 KiB input limit is separate from the model's context limit.
 Each call costs tokens and latency; combine related questions and reuse a
 judgment while its evidence and question meaning remain unchanged.
-
-## Memory and completion checks
-
-`nala-distill --apply` and `nala-distill --merge --apply` already run a Jev
-review before accepting extracted or rewritten knowledge. Inspect `jev_reviews`
-in their normal output: it contains the complete source, candidate, questions,
-and response. Do not repeat that review unless the evidence or candidate changed.
-If a check fails, the tool keeps the original. Investigate the failed check
-instead of repeatedly retrying the same input or bypassing it automatically.
-
-During `--compact`, follow `compact-conversation.md`: draft the summary yourself,
-then ask Jev about grounding, retained obligations, and task/evidence status.
-Keep calls in the editing worker's conversation, not in the shortened document.
-For large inputs, review selected original excerpts and state the coverage limit.
-
-Other useful on-demand checks: compare a completion claim with actual test/tool
-output, or rank a small set of retrieved excerpts against the current task.
-Provide the actual outputs/excerpts. Jev cannot search files, retrieve omitted
-evidence, write a summary, or certify correctness; use ordinary tools for those.
 
 Adapted for nala from TypeSafe's [agent guidance](https://docs.typesafe.ai/agent-skill)
 and [agent skill](https://github.com/typesafe-ai/skills/blob/main/skills/typesafe-ai/SKILL.md),

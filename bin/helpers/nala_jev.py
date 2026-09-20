@@ -9,12 +9,24 @@ import time
 import urllib.error
 import urllib.request
 
-from nala_llm import credential_env_var
+from nala_llm import credential_env_var, load_config
 
 MODEL = "typesafe/jev-1.13"
 ENDPOINT = "https://openrouter.ai/api/alpha/decisions"
 MAX_REQUEST_BYTES = 128 * 1024
 TIMEOUT_SECONDS = 45
+
+
+def jev_enabled(config_path=None):
+    """Explicit opt-in; the environment overrides nala's normal config lookup."""
+    value = os.environ.get("NALA_JEV_ENABLED")
+    if value is not None:
+        return value.strip().lower() in ("1", "true")
+    try:
+        return load_config(config_path).get("jev_enabled", False) is True
+    except (ValueError, OSError):
+        # A broken optional-tool setting must not stop the conversation.
+        return False
 
 
 def _pairs(pairs):
@@ -127,7 +139,7 @@ def validate_response(response, questions):
             _require(_number(usage["cost"], 0, float("inf")), "Invalid usage.cost.")
 
 
-def ask_jev(text):
+def ask_jev(text, *, config_path=None):
     """One state × many questions → an inline result; this function writes no files.
 
     Failures return status=error. The caller owns the transcript. API calls are
@@ -139,6 +151,8 @@ def ask_jev(text):
         "status": "error", "endpoint": ENDPOINT, "request_text": text,
     }
     try:
+        _require(jev_enabled(config_path),
+                 "Jev is disabled. The user can enable it with NALA_JEV_ENABLED=1 or jev_enabled: true in nala config. Continue the task without Jev; do not change settings automatically.")
         _require(len(text.encode("utf-8")) <= MAX_REQUEST_BYTES, "Input exceeds the local 128 KiB limit.")
         payload = validate_request(loads(text))
         record["request"] = payload
@@ -155,7 +169,8 @@ def ask_jev(text):
                 raw = http.read().decode("utf-8").replace(key, "[redacted credential]")
         except urllib.error.HTTPError as exc:
             record["http_status"] = exc.code
-            record["raw_response"] = exc.read().decode("utf-8", errors="replace").replace(key, "[redacted credential]")
+            with exc:
+                record["raw_response"] = exc.read().decode("utf-8", errors="replace").replace(key, "[redacted credential]")
             raise ValueError(f"OpenRouter Decisions returned HTTP {exc.code}; see raw_response in this result.") from exc
         record["http_status"] = 200
         # Retain malformed responses as text; strict JSON rejects NaN/duplicates.

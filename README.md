@@ -256,8 +256,22 @@ nala-campaign --description
 `nala-ask-jev` asks the decision model `typesafe/jev-1.13` through OpenRouter,
 using the same `OPENROUTER_API_KEY` or saved key as nala. The main model gathers
 evidence and writes questions; Jev returns choices, rubric scores, or probabilities.
-Nala discovers its description automatically. Before the first consultation,
-the agent reads the bundled guidance with `nala-ask-jev --guide`.
+Jev is **disabled by default**. Enable it for one invocation:
+
+```bash
+NALA_JEV_ENABLED=1 nala "Use Jev to check whether these test results support your conclusion."
+```
+
+For persistent opt-in, add `"jev_enabled": true` to your existing nala config
+(`.nala/config.json` in the project or `~/.nala/config.json`; `--config` and
+`NALA_CONFIG` follow the normal config selection). The environment overrides
+config: `NALA_JEV_ENABLED=0 nala ...` forces it off, including in child processes.
+The standalone tool also supports `--config path/to/config.json`.
+
+When enabled, nala discovers the tool and its native tag. Before consulting it,
+the agent reads `nala-ask-jev --guide`. While disabled, the tool is omitted from
+discovery; even a call from an old conversation is blocked before credentials
+or network access. A supplied API key does not enable Jev by itself.
 
 Ask nala naturally, for example: “Use nala-ask-jev to check whether these test
 results support your conclusion.” The native action is a JSON object inside
@@ -277,37 +291,22 @@ Normal conversation compaction works as it does for other tool interactions.
 Consultations inform the main agent; they do not automatically authorize actions
 or replace tests. Jev does not generate code or explanations.
 
-Nala also uses Jev for memory maintenance. `nala-distill --apply` checks each
-extraction before merging knowledge and deleting its source;
-`nala-distill --merge --apply` checks each proposed knowledge rewrite before
-replacing the original. One batch checks support, retained information,
-task/evidence status, and continuing user constraints. Every check must return
-`pass`; `problem`, `unclear`, an
-API error, or an oversized request keeps the original and reports a failure.
-The main model still writes the memories. `--no-jev-review` explicitly disables
-these checks; dry runs and `--no-harvest` deletion make no review calls.
+An API, credential, or response-validation error is recorded inline and returned
+to the main model; the nala driver continues the conversation. There is one API
+attempt per consultation, with a 45-second socket timeout and no automatic
+retry. The agent is instructed to continue without Jev on failure. The standalone
+command exits nonzero on failure so shell callers can detect an unavailable
+consultation; this does not terminate the parent nala conversation.
 
-The complete exchanges appear in `jev_reviews` in the normal command report,
-including plain-text mode. Running the command through `nala-shell` therefore
-keeps them inline in that conversation. Terminal use prints them to stdout;
-there are no separate audit files. Review questions are centralized in
-`bin/helpers/nala_memory_review.py`. This adds one Jev request per candidate,
-with its usage/cost and timing in the report. Dry-run token estimates describe
-the extraction/merge input only, not this additional review.
-
-The bundled `--compact` prompt asks the editing worker to review its proposed
-summary with Jev and revise detected problems. Calls remain inline in that
-worker's conversation, keeping the shortened parent small. This is an
-agent-directed review, not an enforced driver gate, and custom compaction
-prompts can replace it. Long conversations use explicitly partial reviews of
-selected original excerpts. Automatic checkpoints and saved-index summaries
-are unchanged. Jev judgments can be wrong; they supplement source comparison
-and tests rather than proving that a rewrite is lossless.
+Distillation, knowledge merging, compaction, and checkpoints have no required
+Jev review step. The previous automatic memory reviews and `--no-jev-review`
+flag were removed. Use Jev for focused, optional evidence checks or ranking
+small sets of retrieved passages; normal workflows remain independent of it.
 
 For direct terminal use, pass a JSON request on stdin (or use `--file request.json`):
 
 ```bash
-nala-ask-jev --file - --json <<'JSON'
+NALA_JEV_ENABLED=1 nala-ask-jev --file - --json <<'JSON'
 {"state":{"claim":"All tests passed","log":"2 failed"},"questions":{"supported":{"type":"noul","instructions":"Does `log` support `claim`?"}}}
 JSON
 ```

@@ -7,23 +7,9 @@ from pathlib import Path
 
 HELPERS_DIR = Path(__file__).resolve().parent / "helpers"
 sys.path.insert(0, str(HELPERS_DIR))
-from nala_cli import WaitSpinner, exit_on_description, resolve_default_root
+from nala_cli import WaitSpinner, emit_json, exit_on_description, resolve_default_root
 from nala_llm import add_llm_arguments, generate_text, resolve_from_args
 from nala_distill_lib import knowledge_dir, run_gc, run_graduate, run_merge
-from nala_jev import dumps as jev_json
-from nala_memory_review import review_memory
-
-
-def emit_json(value):
-    # Original conversations can contain literal closing tool tags. Keep those
-    # inside the JSON when this report is captured in a nala-shell-result.
-    print(jev_json(value))
-
-
-def print_jev_reviews(report):
-    if report.get("jev_reviews"):
-        print("Jev memory reviews (complete input/output):")
-        emit_json(report["jev_reviews"])
 
 
 def wait_spinner(message: str) -> WaitSpinner:
@@ -40,9 +26,7 @@ Classifies conversation archives, delegated sub-conversations, orphaned
 per-file conversations, and stale split directories; harvests facts,
 decisions, tasks, questions, and playbooks from dead conversations into
 editable files under {root}/knowledge/, then deletes the originals. Dry-run
-by default; pass --apply to mutate. Jev checks extracted/merged memories before
-acceptance; failed checks keep originals. Full reviews are inline in the report.
-Use when the nala root has grown or
+by default; pass --apply to mutate. Use when the nala root has grown or
 when past-session knowledge should be folded into context."""
 
 
@@ -93,7 +77,6 @@ def print_report(report: dict) -> None:
     if report.get("digest_path"):
         print(f"digest: {report['digest_path']}")
     print(f"ledger: {report['ledger_path']}")
-    print_jev_reviews(report)
 
 
 def main() -> int:
@@ -121,11 +104,6 @@ def main() -> int:
         "--no-harvest",
         action="store_true",
         help="Delete dead conversations without the LLM harvest pass.",
-    )
-    parser.add_argument(
-        "--no-jev-review",
-        action="store_true",
-        help="Skip the default Jev checks before accepting harvested or merged memories.",
     )
     parser.add_argument(
         "--max-harvest-bytes",
@@ -164,7 +142,6 @@ def main() -> int:
         return 1
 
     harvest = not args.no_harvest
-    review = None if args.no_jev_review else review_memory
     provider = model = None
     config_path = args.config.expanduser() if args.config else None
 
@@ -188,7 +165,6 @@ def main() -> int:
             reports["merge"] = run_merge(
                 root, apply=args.apply, generate=generate,
                 progress=print_progress if args.apply else None,
-                review=review,
             )
             failures += reports["merge"]["failures"]
         if args.graduate:
@@ -210,7 +186,6 @@ def main() -> int:
                     )
                 if merge_report["merged"]:
                     print(f"merged: {', '.join(merge_report['merged'])}")
-                print_jev_reviews(merge_report)
             graduate_report = reports.get("graduate")
             if graduate_report:
                 print(
@@ -242,7 +217,6 @@ def main() -> int:
         generate=generate_text,
         spinner=wait_spinner,
         progress=print_progress if args.apply else None,
-        review=review,
     )
 
     if args.json:

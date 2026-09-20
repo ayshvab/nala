@@ -106,7 +106,7 @@ def exit_on_description(description: str) -> None:
         raise SystemExit(0)
 
 
-def collect_bin_tool_descriptions(bin_dirs: Path | list[Path]) -> str:
+def collect_bin_tool_descriptions(bin_dirs: Path | list[Path], *, exclude: set[str] | None = None) -> str:
     """Self-described tools from one or more bin directories. With a list,
     later directories shadow earlier ones by basename (most specific layer
     wins)."""
@@ -118,6 +118,8 @@ def collect_bin_tool_descriptions(bin_dirs: Path | list[Path]) -> str:
         if not bin_dir.is_dir():
             continue
         for path in sorted(entry for entry in bin_dir.iterdir() if entry.is_file()):
+            if exclude and path.name in exclude:
+                continue
             try:
                 result = subprocess.run(
                     [str(path.resolve()), "--description"],
