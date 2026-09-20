@@ -17,6 +17,10 @@ Category rules:
 - facts: durable statements about systems, repositories, tools, environments,
   or constraints that were learned, not assumed.
 - decisions: choices that were made, with the why in `detail`.
+- Keep active user requirements and constraints explicitly in facts or
+  decisions, including their scope. "Continue investigating without edits"
+  remains a requirement; a tasks_done note saying "kept it read-only" does
+  not preserve that requirement for the next worker.
 - tasks_done: concrete work completed in this conversation.
 - tasks_open: work that was started, planned, or requested but not finished.
 - questions: questions raised and never answered.

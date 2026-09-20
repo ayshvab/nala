@@ -277,6 +277,33 @@ Normal conversation compaction works as it does for other tool interactions.
 Consultations inform the main agent; they do not automatically authorize actions
 or replace tests. Jev does not generate code or explanations.
 
+Nala also uses Jev for memory maintenance. `nala-distill --apply` checks each
+extraction before merging knowledge and deleting its source;
+`nala-distill --merge --apply` checks each proposed knowledge rewrite before
+replacing the original. One batch checks support, retained information,
+task/evidence status, and continuing user constraints. Every check must return
+`pass`; `problem`, `unclear`, an
+API error, or an oversized request keeps the original and reports a failure.
+The main model still writes the memories. `--no-jev-review` explicitly disables
+these checks; dry runs and `--no-harvest` deletion make no review calls.
+
+The complete exchanges appear in `jev_reviews` in the normal command report,
+including plain-text mode. Running the command through `nala-shell` therefore
+keeps them inline in that conversation. Terminal use prints them to stdout;
+there are no separate audit files. Review questions are centralized in
+`bin/helpers/nala_memory_review.py`. This adds one Jev request per candidate,
+with its usage/cost and timing in the report. Dry-run token estimates describe
+the extraction/merge input only, not this additional review.
+
+The bundled `--compact` prompt asks the editing worker to review its proposed
+summary with Jev and revise detected problems. Calls remain inline in that
+worker's conversation, keeping the shortened parent small. This is an
+agent-directed review, not an enforced driver gate, and custom compaction
+prompts can replace it. Long conversations use explicitly partial reviews of
+selected original excerpts. Automatic checkpoints and saved-index summaries
+are unchanged. Jev judgments can be wrong; they supplement source comparison
+and tests rather than proving that a rewrite is lossless.
+
 For direct terminal use, pass a JSON request on stdin (or use `--file request.json`):
 
 ```bash

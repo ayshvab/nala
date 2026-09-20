@@ -13,6 +13,7 @@ from pathlib import Path
 from nala_cli import resolve_prompt_path
 from nala_file_edit_lib import file_id_for_path
 from nala_file_split_lib import source_sha256
+from nala_memory_review import require_memory_review
 
 # Reuse the thresholds the rest of the system already commits to.
 SUMMARIZE_THRESHOLD_BYTES = 64 * 1024
@@ -690,6 +691,7 @@ def run_gc(
     now: datetime | None = None,
     spinner=None,
     progress=None,
+    review=None,
 ) -> dict:
     # spinner: callable(message) -> context manager shown while an LLM call
     # runs. progress: callable(message) -> None for per-artifact status lines.
@@ -725,6 +727,7 @@ def run_gc(
         "estimated_harvest_input_tokens": harvest_bytes // 4,
         "prune_candidate_bytes": sum(a.size_bytes for a in prune_candidates),
         "summary_backfill_candidates": summary_candidates,
+        "jev_reviews": [],
     }
     if not apply:
         return report
@@ -786,6 +789,8 @@ def run_gc(
             emit(f"deferred (over --max-harvest-bytes): {label}")
             continue
 
+        # A rejected candidate has still paid for extraction and review.
+        harvested_input_bytes += artifact.size_bytes
         try:
             with spin(f"Harvesting {label}"):
                 harvested = harvest_conversation(
@@ -797,6 +802,11 @@ def run_gc(
                     generate=generate,
                     summarize=summarize,
                 )
+                if review is not None:
+                    # Review the original even when extraction used a summary:
+                    # a summary cannot reveal what it already omitted.
+                    require_memory_review(report, review, path, path.read_text(encoding="utf-8"),
+                                          harvested, purpose="harvest")
         except (OSError, RuntimeError, ValueError, UnicodeDecodeError) as exc:
             failures.append({"path": str(path), "error": str(exc)})
             entries[sha] = {
@@ -809,7 +819,6 @@ def run_gc(
             emit(f"harvest failed: {label}: {exc}")
             continue
 
-        harvested_input_bytes += artifact.size_bytes
         counts = merge_harvest(root, path.name, harvested, date)
         for category, count in counts.items():
             harvested_counts[category] += count
@@ -887,7 +896,7 @@ def _mergeable_paths(root: Path) -> list[Path]:
     return [knowledge / name for name in MERGEABLE_FILES if (knowledge / name).is_file()]
 
 
-def run_merge(root: Path, *, apply: bool = False, generate=None, progress=None) -> dict:
+def run_merge(root: Path, *, apply: bool = False, generate=None, progress=None, review=None) -> dict:
     """Dedup/merge/compress each knowledge category file via one LLM rewrite
     per file. The previous content is kept as {file}.pre-merge; the digest
     regenerates afterward so user edits and merges propagate identically."""
@@ -915,6 +924,7 @@ def run_merge(root: Path, *, apply: bool = False, generate=None, progress=None) 
         "merged": [],
         "failures": [],
         "digest_path": None,
+        "jev_reviews": [],
     }
     if not apply:
         return report
@@ -942,6 +952,13 @@ def run_merge(root: Path, *, apply: bool = False, generate=None, progress=None) 
             report["failures"].append(f"{path.name}: merge result had no items; kept original")
             emit(f"merge rejected (no items): {path.name}")
             continue
+        if review is not None:
+            try:
+                require_memory_review(report, review, path, original, merged, purpose="merge")
+            except (OSError, RuntimeError, ValueError) as exc:
+                report["failures"].append(f"{path.name}: {exc}")
+                emit(f"merge rejected: {path.name}: {exc}")
+                continue
         path.with_name(path.name + ".pre-merge").write_text(original, encoding="utf-8")
         path.write_text(merged + "\n", encoding="utf-8")
         report["merged"].append(path.name)

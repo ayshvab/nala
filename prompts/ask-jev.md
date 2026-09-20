@@ -103,6 +103,25 @@ retry. The local 128 KiB input limit is separate from the model's context limit.
 Each call costs tokens and latency; combine related questions and reuse a
 judgment while its evidence and question meaning remain unchanged.
 
+## Memory and completion checks
+
+`nala-distill --apply` and `nala-distill --merge --apply` already run a Jev
+review before accepting extracted or rewritten knowledge. Inspect `jev_reviews`
+in their normal output: it contains the complete source, candidate, questions,
+and response. Do not repeat that review unless the evidence or candidate changed.
+If a check fails, the tool keeps the original. Investigate the failed check
+instead of repeatedly retrying the same input or bypassing it automatically.
+
+During `--compact`, follow `compact-conversation.md`: draft the summary yourself,
+then ask Jev about grounding, retained obligations, and task/evidence status.
+Keep calls in the editing worker's conversation, not in the shortened document.
+For large inputs, review selected original excerpts and state the coverage limit.
+
+Other useful on-demand checks: compare a completion claim with actual test/tool
+output, or rank a small set of retrieved excerpts against the current task.
+Provide the actual outputs/excerpts. Jev cannot search files, retrieve omitted
+evidence, write a summary, or certify correctness; use ordinary tools for those.
+
 Adapted for nala from TypeSafe's [agent guidance](https://docs.typesafe.ai/agent-skill)
 and [agent skill](https://github.com/typesafe-ai/skills/blob/main/skills/typesafe-ai/SKILL.md),
 checked 2026-09-20. References: [state](https://docs.typesafe.ai/concepts/state),
